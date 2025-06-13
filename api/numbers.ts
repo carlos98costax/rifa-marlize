@@ -113,6 +113,15 @@ app.use(async (req, res, next) => {
   }
 });
 
+// Error handling middleware
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('Erro na API:', err);
+  res.status(500).json({
+    error: 'Erro interno do servidor',
+    details: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', mongodb: mongoose.connection.readyState === 1 });
