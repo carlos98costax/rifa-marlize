@@ -68,8 +68,8 @@ async function connectDB() {
     await mongoose.connect(MONGODB_URI, {
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
-      maxPoolSize: 10,
-      minPoolSize: 5,
+      maxPoolSize: 1, // Reduzido para serverless
+      minPoolSize: 0, // Reduzido para serverless
       retryWrites: true,
       retryReads: true,
       connectTimeoutMS: 10000,
@@ -127,18 +127,31 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 // Health check endpoint
 app.get('/api/health', async (req, res) => {
   try {
+    // Tenta conectar ao MongoDB se não estiver conectado
+    if (mongoose.connection.readyState !== 1) {
+      await connectDB();
+    }
+
     const mongoStatus = mongoose.connection.readyState === 1;
-    res.json({ 
-      status: 'ok', 
+    const response = { 
+      status: mongoStatus ? 'ok' : 'error',
       mongodb: mongoStatus,
-      timestamp: new Date().toISOString()
-    });
+      timestamp: new Date().toISOString(),
+      connectionState: mongoose.connection.readyState
+    };
+
+    if (!mongoStatus) {
+      return res.status(500).json(response);
+    }
+
+    res.json(response);
   } catch (error) {
     console.error('Erro no health check:', error);
     res.status(500).json({ 
       status: 'error',
       error: 'Erro ao verificar saúde do sistema',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      connectionState: mongoose.connection.readyState
     });
   }
 });
@@ -146,8 +159,9 @@ app.get('/api/health', async (req, res) => {
 // Rotas
 app.get('/api/numbers', async (req, res) => {
   try {
+    // Tenta conectar ao MongoDB se não estiver conectado
     if (mongoose.connection.readyState !== 1) {
-      throw new Error('MongoDB não está conectado');
+      await connectDB();
     }
 
     console.log('Buscando números...');
@@ -165,8 +179,9 @@ app.get('/api/numbers', async (req, res) => {
 
 app.post('/api/numbers/purchase', async (req, res) => {
   try {
+    // Tenta conectar ao MongoDB se não estiver conectado
     if (mongoose.connection.readyState !== 1) {
-      throw new Error('MongoDB não está conectado');
+      await connectDB();
     }
 
     const { numbers, buyer, password } = req.body;
