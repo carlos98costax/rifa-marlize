@@ -1,11 +1,22 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import { config } from 'dotenv';
+import cors from 'cors';
 
 // Carrega as variáveis de ambiente
 config();
 
 const app = express();
+
+// Configuração do CORS
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://rifa-marlizee.vercel.app', 'https://www.rifa-marlizee.vercel.app']
+    : '*',
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type']
+}));
+
 app.use(express.json());
 
 // Conexão com MongoDB
@@ -100,6 +111,11 @@ app.use(async (req, res, next) => {
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
+});
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', mongodb: mongoose.connection.readyState === 1 });
 });
 
 // Rotas

@@ -10,25 +10,50 @@ export interface RaffleNumber {
 
 export const api = {
   async getNumbers(): Promise<RaffleNumber[]> {
-    const response = await fetch(`${API_URL}`)
-    if (!response.ok) {
-      throw new Error('Failed to fetch numbers')
+    try {
+      const response = await fetch(`${API_URL}`)
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to fetch numbers')
+      }
+      return response.json()
+    } catch (error) {
+      console.error('Error fetching numbers:', error)
+      throw error
     }
-    return response.json()
   },
 
   async purchaseNumbers(numbers: number[], buyer: string, password: string): Promise<void> {
-    const response = await fetch(`${API_URL}/purchase`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ numbers, buyer, password }),
-    })
+    try {
+      const response = await fetch(`${API_URL}/purchase`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ numbers, buyer, password }),
+      })
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error || 'Failed to purchase numbers')
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to purchase numbers')
+      }
+    } catch (error) {
+      console.error('Error purchasing numbers:', error)
+      throw error
     }
   },
+
+  async checkHealth(): Promise<boolean> {
+    try {
+      const response = await fetch('/api/health')
+      if (!response.ok) {
+        return false
+      }
+      const data = await response.json()
+      return data.status === 'ok' && data.mongodb === true
+    } catch (error) {
+      console.error('Health check failed:', error)
+      return false
+    }
+  }
 } 
