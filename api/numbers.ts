@@ -20,7 +20,7 @@ app.use(cors({
 app.use(express.json());
 
 // Conexão com MongoDB
-const MONGODB_URI = process.env.MONGODB_URI;
+const MONGODB_URI = process.env.MONGODB_URI || '';
 
 if (!MONGODB_URI) {
   console.error('MONGODB_URI não está definida nas variáveis de ambiente');
@@ -71,7 +71,9 @@ async function connectDB() {
       maxPoolSize: 10,
       minPoolSize: 5,
       retryWrites: true,
-      retryReads: true
+      retryReads: true,
+      connectTimeoutMS: 10000,
+      family: 4 // Força IPv4
     });
     
     console.log('Conectado ao MongoDB com sucesso');
@@ -123,13 +125,31 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', mongodb: mongoose.connection.readyState === 1 });
+app.get('/api/health', async (req, res) => {
+  try {
+    const mongoStatus = mongoose.connection.readyState === 1;
+    res.json({ 
+      status: 'ok', 
+      mongodb: mongoStatus,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Erro no health check:', error);
+    res.status(500).json({ 
+      status: 'error',
+      error: 'Erro ao verificar saúde do sistema',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
 });
 
 // Rotas
 app.get('/api/numbers', async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      throw new Error('MongoDB não está conectado');
+    }
+
     console.log('Buscando números...');
     const numbers = await NumberModel.find().sort({ id: 1 });
     console.log(`Encontrados ${numbers.length} números`);
@@ -145,6 +165,10 @@ app.get('/api/numbers', async (req, res) => {
 
 app.post('/api/numbers/purchase', async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      throw new Error('MongoDB não está conectado');
+    }
+
     const { numbers, buyer, password } = req.body;
     
     if (!numbers || !Array.isArray(numbers) || numbers.length === 0) {
