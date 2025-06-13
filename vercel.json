@@ -1,26 +1,17 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "backend/src/server.ts",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
-    }
+  "framework": "vite",
+  "buildCommand": "npm run build && npm run build:server",
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/server.ts" }
   ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "backend/src/server.ts"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/dist/$1"
+  "functions": {
+    "api/server.ts": {
+      "memory": 1024,
+      "maxDuration": 10
     }
-  ]
+  },
+  "env": {
+    "NODE_ENV": "production"
+  }
 } 
