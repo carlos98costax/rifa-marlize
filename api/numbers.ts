@@ -47,12 +47,20 @@ const NumberModel = mongoose.model<INumber>('Number', numberSchema);
 // Conecta ao MongoDB
 async function connectDB() {
   try {
+    if (mongoose.connection.readyState === 1) {
+      console.log('Já conectado ao MongoDB');
+      return;
+    }
+
     console.log('Tentando conectar ao MongoDB...');
-    console.log('URI:', MONGODB_URI);
     
     await mongoose.connect(MONGODB_URI, {
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
+      maxPoolSize: 10,
+      minPoolSize: 5,
+      retryWrites: true,
+      retryReads: true
     });
     
     console.log('Conectado ao MongoDB com sucesso');
@@ -77,25 +85,20 @@ async function connectDB() {
   }
 }
 
-// Conecta ao MongoDB
-connectDB().catch(error => {
-  console.error('Falha ao conectar ao MongoDB:', error);
-  process.exit(1);
-});
-
 // Middleware para verificar conexão
 app.use(async (req, res, next) => {
-  if (mongoose.connection.readyState !== 1) {
-    console.log('Estado da conexão MongoDB:', mongoose.connection.readyState);
-    try {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      console.log('Estado da conexão MongoDB:', mongoose.connection.readyState);
       await connectDB();
-      next();
-    } catch (error) {
-      console.error('Erro ao reconectar ao MongoDB:', error);
-      res.status(500).json({ error: 'Erro de conexão com o banco de dados' });
     }
-  } else {
     next();
+  } catch (error) {
+    console.error('Erro ao reconectar ao MongoDB:', error);
+    res.status(500).json({ 
+      error: 'Erro de conexão com o banco de dados',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
@@ -108,7 +111,10 @@ app.get('/api/numbers', async (req, res) => {
     res.json(numbers);
   } catch (error) {
     console.error('Erro ao buscar números:', error);
-    res.status(500).json({ error: 'Erro ao buscar números' });
+    res.status(500).json({ 
+      error: 'Erro ao buscar números',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
@@ -159,8 +165,16 @@ app.post('/api/numbers/purchase', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Erro ao processar compra:', error);
-    res.status(500).json({ error: 'Erro ao processar compra' });
+    res.status(500).json({ 
+      error: 'Erro ao processar compra',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
+});
+
+// Inicializa a conexão com o MongoDB
+connectDB().catch(error => {
+  console.error('Falha ao conectar ao MongoDB:', error);
 });
 
 export default app; 
