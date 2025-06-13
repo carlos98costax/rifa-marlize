@@ -12,22 +12,32 @@
       "src": "api/**/*.ts",
       "use": "@vercel/node",
       "config": {
-        "includeFiles": ["api/**/*"]
+        "includeFiles": ["api/**/*"],
+        "maxDuration": 10
       }
     }
   ],
   "routes": [
     {
       "src": "/api/health",
-      "dest": "/api/numbers.ts"
+      "dest": "/api/numbers.ts",
+      "headers": {
+        "Content-Type": "application/json"
+      }
     },
     {
       "src": "/api/numbers",
-      "dest": "/api/numbers.ts"
+      "dest": "/api/numbers.ts",
+      "headers": {
+        "Content-Type": "application/json"
+      }
     },
     {
       "src": "/api/numbers/purchase",
-      "dest": "/api/numbers.ts"
+      "dest": "/api/numbers.ts",
+      "headers": {
+        "Content-Type": "application/json"
+      }
     },
     {
       "handle": "filesystem"

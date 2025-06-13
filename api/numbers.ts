@@ -172,7 +172,8 @@ app.get('/api/numbers', async (req, res) => {
     console.error('Erro ao buscar números:', error);
     res.status(500).json({ 
       error: 'Erro ao buscar números',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      connectionState: mongoose.connection.readyState
     });
   }
 });
@@ -231,7 +232,8 @@ app.post('/api/numbers/purchase', async (req, res) => {
     console.error('Erro ao processar compra:', error);
     res.status(500).json({ 
       error: 'Erro ao processar compra',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      connectionState: mongoose.connection.readyState
     });
   }
 });
@@ -239,6 +241,12 @@ app.post('/api/numbers/purchase', async (req, res) => {
 // Inicializa a conexão com o MongoDB
 connectDB().catch(error => {
   console.error('Falha ao conectar ao MongoDB:', error);
+});
+
+// Garante que todas as respostas sejam JSON
+app.use((req, res, next) => {
+  res.setHeader('Content-Type', 'application/json');
+  next();
 });
 
 export default app; 
