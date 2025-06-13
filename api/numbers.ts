@@ -5,7 +5,8 @@ import { config } from 'dotenv';
 // Carrega as variáveis de ambiente
 config();
 
-const router = express.Router();
+const app = express();
+app.use(express.json());
 
 // Conexão com MongoDB
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -83,7 +84,7 @@ connectDB().catch(error => {
 });
 
 // Middleware para verificar conexão
-router.use(async (req, res, next) => {
+app.use(async (req, res, next) => {
   if (mongoose.connection.readyState !== 1) {
     console.log('Estado da conexão MongoDB:', mongoose.connection.readyState);
     try {
@@ -99,7 +100,7 @@ router.use(async (req, res, next) => {
 });
 
 // Rotas
-router.get('/', async (req, res) => {
+app.get('/api/numbers', async (req, res) => {
   try {
     console.log('Buscando números...');
     const numbers = await NumberModel.find().sort({ id: 1 });
@@ -111,7 +112,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.post('/purchase', async (req, res) => {
+app.post('/api/numbers/purchase', async (req, res) => {
   try {
     const { numbers, buyer, password } = req.body;
     
@@ -162,4 +163,4 @@ router.post('/purchase', async (req, res) => {
   }
 });
 
-export default router; 
+export default app; 
