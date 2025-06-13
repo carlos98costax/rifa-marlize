@@ -1,6 +1,6 @@
 const API_URL = import.meta.env.PROD 
-  ? '/api'  // Em produção, usa o caminho relativo
-  : 'http://localhost:3001/api'  // Em desenvolvimento, usa localhost
+  ? '/api/numbers'  // Em produção, usa o caminho relativo
+  : 'http://localhost:3001/api/numbers'  // Em desenvolvimento, usa localhost
 
 export interface RaffleNumber {
   id: number
@@ -10,7 +10,7 @@ export interface RaffleNumber {
 
 export const api = {
   async getNumbers(): Promise<RaffleNumber[]> {
-    const response = await fetch(`${API_URL}/numbers`)
+    const response = await fetch(`${API_URL}`)
     if (!response.ok) {
       throw new Error('Failed to fetch numbers')
     }
