@@ -40,7 +40,8 @@ const numberSchema = new mongoose.Schema<INumber>({
   timestamps: true
 });
 
-const Number = mongoose.model<INumber>('Number', numberSchema);
+// Define o modelo antes de qualquer uso
+const NumberModel = mongoose.model<INumber>('Number', numberSchema);
 
 // Conecta ao MongoDB
 async function connectDB() {
@@ -56,7 +57,7 @@ async function connectDB() {
     console.log('Conectado ao MongoDB com sucesso');
 
     // Inicializa os números se a coleção estiver vazia
-    const count = await Number.countDocuments();
+    const count = await NumberModel.countDocuments();
     console.log(`Número de documentos na coleção: ${count}`);
     
     if (count === 0) {
@@ -66,7 +67,7 @@ async function connectDB() {
         buyer: '',
         selected: false
       }));
-      await Number.insertMany(numbers);
+      await NumberModel.insertMany(numbers);
       console.log('Números inicializados com sucesso');
     }
   } catch (error) {
@@ -101,7 +102,7 @@ router.use(async (req, res, next) => {
 router.get('/', async (req, res) => {
   try {
     console.log('Buscando números...');
-    const numbers = await Number.find().sort({ id: 1 });
+    const numbers = await NumberModel.find().sort({ id: 1 });
     console.log(`Encontrados ${numbers.length} números`);
     res.json(numbers);
   } catch (error) {
@@ -131,7 +132,7 @@ router.post('/purchase', async (req, res) => {
     }
 
     // Verifica se algum número já foi vendido
-    const soldNumbers = await Number.find({
+    const soldNumbers = await NumberModel.find({
       id: { $in: numbers },
       buyer: { $ne: '' }
     });
@@ -144,7 +145,7 @@ router.post('/purchase', async (req, res) => {
     }
 
     // Atualiza os números
-    await Number.updateMany(
+    await NumberModel.updateMany(
       { id: { $in: numbers } },
       { 
         $set: { 
