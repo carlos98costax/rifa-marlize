@@ -45,11 +45,20 @@ const Number = mongoose.model<INumber>('Number', numberSchema);
 // Conecta ao MongoDB
 async function connectDB() {
   try {
-    await mongoose.connect(MONGODB_URI);
-    console.log('Conectado ao MongoDB');
+    console.log('Tentando conectar ao MongoDB...');
+    console.log('URI:', MONGODB_URI);
+    
+    await mongoose.connect(MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    });
+    
+    console.log('Conectado ao MongoDB com sucesso');
 
     // Inicializa os números se a coleção estiver vazia
     const count = await Number.countDocuments();
+    console.log(`Número de documentos na coleção: ${count}`);
+    
     if (count === 0) {
       console.log('Inicializando números no MongoDB...');
       const numbers = Array.from({ length: 400 }, (_, i) => ({
@@ -62,17 +71,38 @@ async function connectDB() {
     }
   } catch (error) {
     console.error('Erro ao conectar ao MongoDB:', error);
-    process.exit(1);
+    throw error;
   }
 }
 
 // Conecta ao MongoDB
-connectDB();
+connectDB().catch(error => {
+  console.error('Falha ao conectar ao MongoDB:', error);
+  process.exit(1);
+});
+
+// Middleware para verificar conexão
+router.use(async (req, res, next) => {
+  if (mongoose.connection.readyState !== 1) {
+    console.log('Estado da conexão MongoDB:', mongoose.connection.readyState);
+    try {
+      await connectDB();
+      next();
+    } catch (error) {
+      console.error('Erro ao reconectar ao MongoDB:', error);
+      res.status(500).json({ error: 'Erro de conexão com o banco de dados' });
+    }
+  } else {
+    next();
+  }
+});
 
 // Rotas
 router.get('/', async (req, res) => {
   try {
+    console.log('Buscando números...');
     const numbers = await Number.find().sort({ id: 1 });
+    console.log(`Encontrados ${numbers.length} números`);
     res.json(numbers);
   } catch (error) {
     console.error('Erro ao buscar números:', error);
