@@ -12,8 +12,6 @@
       "src": "api/**/*.ts",
       "use": "@vercel/node",
       "config": {
-        "includeFiles": ["api/**/*"],
-        "maxDuration": 10,
         "nodeVersion": "22.x"
       }
     }
@@ -23,40 +21,30 @@
       "src": "/api/health",
       "dest": "/api/numbers.ts",
       "headers": {
-        "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type"
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Content-Type": "application/json"
       }
     },
     {
       "src": "/api/numbers",
       "dest": "/api/numbers.ts",
       "headers": {
-        "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type"
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Content-Type": "application/json"
       }
     },
     {
       "src": "/api/numbers/purchase",
       "dest": "/api/numbers.ts",
       "headers": {
-        "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type"
-      }
-    },
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/numbers.ts",
-      "headers": {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type"
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Content-Type": "application/json"
       }
     },
     {

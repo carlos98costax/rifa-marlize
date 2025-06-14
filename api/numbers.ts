@@ -25,13 +25,65 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
-// Conexão com MongoDB
-const MONGODB_URI = process.env.MONGODB_URI || '';
+// MongoDB Connection
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://carlos98costa:1234567890@cluster0.mongodb.net/rifa?retryWrites=true&w=majority';
 
-if (!MONGODB_URI) {
-  console.error('MONGODB_URI não está definida nas variáveis de ambiente');
-  process.exit(1);
+let isConnected = false;
+let connectionPromise: Promise<typeof mongoose> | null = null;
+
+async function connectToDatabase() {
+  if (isConnected) {
+    console.log('Using existing database connection');
+    return;
+  }
+
+  if (connectionPromise) {
+    console.log('Connection already in progress, waiting...');
+    return connectionPromise;
+  }
+
+  try {
+    console.log('Connecting to MongoDB...');
+    connectionPromise = mongoose.connect(MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+      family: 4,
+      maxPoolSize: 10,
+      minPoolSize: 5,
+      maxIdleTimeMS: 10000,
+      connectTimeoutMS: 10000,
+      heartbeatFrequencyMS: 10000,
+      retryWrites: true,
+      retryReads: true,
+    });
+
+    const conn = await connectionPromise;
+    isConnected = true;
+    console.log('MongoDB connected successfully');
+    return conn;
+  } catch (error) {
+    console.error('MongoDB connection error:', error);
+    connectionPromise = null;
+    isConnected = false;
+    throw error;
+  }
 }
+
+// Middleware to check MongoDB connection
+app.use(async (req, res, next) => {
+  try {
+    await connectToDatabase();
+    next();
+  } catch (error) {
+    console.error('Database connection error:', error);
+    res.status(500).json({
+      error: 'Database connection error',
+      message: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development'
+    });
+  }
+});
 
 // Modelo do MongoDB
 interface INumber {
@@ -61,237 +113,113 @@ const numberSchema = new mongoose.Schema<INumber>({
 // Define o modelo antes de qualquer uso
 const NumberModel = mongoose.model<INumber>('Number', numberSchema);
 
-// Conecta ao MongoDB
-async function connectDB() {
-  try {
-    // Fecha a conexão existente se houver
-    if (mongoose.connection.readyState !== 0) {
-      console.log('Fechando conexão existente...');
-      await mongoose.connection.close();
-    }
-
-    console.log('Tentando conectar ao MongoDB...');
-    console.log('URI do MongoDB:', MONGODB_URI.replace(/\/\/[^:]+:[^@]+@/, '//***:***@')); // Oculta credenciais
-    
-    await mongoose.connect(MONGODB_URI, {
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-      maxPoolSize: 1,
-      minPoolSize: 0,
-      retryWrites: true,
-      retryReads: true,
-      connectTimeoutMS: 10000,
-      family: 4,
-      heartbeatFrequencyMS: 2000,
-      autoIndex: true
-    });
-    
-    console.log('Conectado ao MongoDB com sucesso');
-
-    // Inicializa os números se a coleção estiver vazia
-    const count = await NumberModel.countDocuments();
-    console.log(`Número de documentos na coleção: ${count}`);
-    
-    if (count === 0) {
-      console.log('Inicializando números no MongoDB...');
-      const numbers = Array.from({ length: 400 }, (_, i) => ({
-        id: i + 1,
-        buyer: '',
-        selected: false
-      }));
-      await NumberModel.insertMany(numbers);
-      console.log('Números inicializados com sucesso');
-    }
-  } catch (error) {
-    console.error('Erro ao conectar ao MongoDB:', error);
-    throw error;
-  }
-}
-
-// Middleware para verificar conexão
-app.use(async (req, res, next) => {
-  try {
-    console.log('Verificando conexão MongoDB...');
-    console.log('Estado atual:', mongoose.connection.readyState);
-    
-    if (mongoose.connection.readyState !== 1) {
-      console.log('Tentando reconectar ao MongoDB...');
-      await connectDB();
-    }
-    
-    console.log('Conexão MongoDB verificada com sucesso');
-    next();
-  } catch (error) {
-    console.error('Erro ao reconectar ao MongoDB:', error);
-    res.status(500).json({ 
-      error: 'Erro de conexão com o banco de dados',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
-      connectionState: mongoose.connection.readyState,
-      timestamp: new Date().toISOString()
-    });
-  }
-});
-
-// Error handling middleware
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('Erro na API:', err);
-  res.status(500).json({
-    error: 'Erro interno do servidor',
-    details: process.env.NODE_ENV === 'development' ? err.message : undefined,
-    connectionState: mongoose.connection.readyState,
-    timestamp: new Date().toISOString()
-  });
-});
-
-// Health check endpoint
-app.get('/api/health', async (req, res) => {
-  try {
-    console.log('Health check iniciado...');
-    
-    // Tenta conectar ao MongoDB se não estiver conectado
-    if (mongoose.connection.readyState !== 1) {
-      console.log('Tentando conectar ao MongoDB no health check...');
-      await connectDB();
-    }
-
-    const mongoStatus = mongoose.connection.readyState === 1;
-    console.log('Status MongoDB:', mongoStatus);
-    
-    const response = { 
-      status: mongoStatus ? 'ok' : 'error',
-      mongodb: mongoStatus,
-      timestamp: new Date().toISOString(),
-      connectionState: mongoose.connection.readyState,
-      environment: process.env.NODE_ENV || 'development'
-    };
-
-    if (!mongoStatus) {
-      console.log('Health check falhou - MongoDB não conectado');
-      return res.status(500).json(response);
-    }
-
-    console.log('Health check concluído com sucesso');
-    res.json(response);
-  } catch (error) {
-    console.error('Erro no health check:', error);
-    res.status(500).json({ 
-      status: 'error',
-      error: 'Erro ao verificar saúde do sistema',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
-      connectionState: mongoose.connection.readyState,
-      timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV || 'development'
-    });
-  }
-});
-
-// Rotas
+// Routes
 app.get('/api/numbers', async (req, res) => {
   try {
-    console.log('GET /api/numbers iniciado...');
-    
-    // Tenta conectar ao MongoDB se não estiver conectado
-    if (mongoose.connection.readyState !== 1) {
-      console.log('Tentando conectar ao MongoDB na rota GET /api/numbers...');
-      await connectDB();
-    }
-
-    console.log('Buscando números...');
     const numbers = await NumberModel.find().sort({ id: 1 });
-    console.log(`Encontrados ${numbers.length} números`);
     res.json(numbers);
   } catch (error) {
-    console.error('Erro ao buscar números:', error);
-    res.status(500).json({ 
-      error: 'Erro ao buscar números',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
-      connectionState: mongoose.connection.readyState,
-      timestamp: new Date().toISOString()
+    console.error('Error fetching numbers:', error);
+    res.status(500).json({
+      error: 'Error fetching numbers',
+      message: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development'
     });
   }
 });
 
 app.post('/api/numbers/purchase', async (req, res) => {
   try {
-    console.log('POST /api/numbers/purchase iniciado...');
-    
-    // Tenta conectar ao MongoDB se não estiver conectado
-    if (mongoose.connection.readyState !== 1) {
-      console.log('Tentando conectar ao MongoDB na rota POST /api/numbers/purchase...');
-      await connectDB();
-    }
+    const { number, name } = req.body;
 
-    const { numbers, buyer, password } = req.body;
-    console.log('Dados recebidos:', { numbers, buyer, password: '***' });
-    
-    if (!numbers || !Array.isArray(numbers) || numbers.length === 0) {
-      console.log('Números inválidos');
-      return res.status(400).json({ error: 'Números inválidos' });
-    }
-    
-    if (!buyer || typeof buyer !== 'string' || buyer.trim() === '') {
-      console.log('Nome do comprador inválido');
-      return res.status(400).json({ error: 'Nome do comprador é obrigatório' });
-    }
-
-    if (!password || typeof password !== 'string') {
-      console.log('Senha não fornecida');
-      return res.status(400).json({ error: 'Senha de verificação é obrigatória' });
-    }
-
-    if (password !== process.env.ADMIN_PASSWORD) {
-      console.log('Senha incorreta');
-      return res.status(401).json({ error: 'Senha de verificação incorreta' });
-    }
-
-    // Verifica se algum número já foi vendido
-    console.log('Verificando números já vendidos...');
-    const soldNumbers = await NumberModel.find({
-      id: { $in: numbers },
-      buyer: { $ne: '' }
-    });
-
-    if (soldNumbers.length > 0) {
-      console.log('Números já vendidos encontrados:', soldNumbers.map(n => n.id));
+    if (!number || !name) {
       return res.status(400).json({
-        error: 'Alguns números já foram vendidos',
-        soldNumbers: soldNumbers.map(n => n.id)
+        error: 'Missing required fields',
+        message: 'Number and name are required',
+        timestamp: new Date().toISOString()
       });
     }
 
-    // Atualiza os números
-    console.log('Atualizando números...');
-    await NumberModel.updateMany(
-      { id: { $in: numbers } },
-      { 
-        $set: { 
-          buyer: buyer.trim(),
-          selected: true
-        }
-      }
-    );
+    const numberDoc = await NumberModel.findOne({ id: number });
 
-    console.log('Compra realizada com sucesso');
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Erro ao processar compra:', error);
-    res.status(500).json({ 
-      error: 'Erro ao processar compra',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
-      connectionState: mongoose.connection.readyState,
+    if (!numberDoc) {
+      return res.status(404).json({
+        error: 'Number not found',
+        message: `Number ${number} does not exist`,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (!numberDoc.selected) {
+      return res.status(400).json({
+        error: 'Number not available',
+        message: `Number ${number} is already purchased`,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    numberDoc.buyer = name;
+    numberDoc.selected = false;
+    await numberDoc.save();
+
+    res.json({
+      message: 'Number purchased successfully',
+      number: numberDoc,
       timestamp: new Date().toISOString()
     });
+  } catch (error) {
+    console.error('Error purchasing number:', error);
+    res.status(500).json({
+      error: 'Error purchasing number',
+      message: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development'
+    });
   }
+});
+
+// Health check endpoint
+app.get('/api/health', async (req, res) => {
+  try {
+    const dbState = mongoose.connection.readyState;
+    const status = {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development',
+      database: {
+        state: dbState,
+        connected: dbState === 1,
+        stateName: ['disconnected', 'connected', 'connecting', 'disconnecting'][dbState] || 'unknown'
+      }
+    };
+    res.json(status);
+  } catch (error) {
+    console.error('Health check error:', error);
+    res.status(500).json({
+      status: 'error',
+      error: 'Health check failed',
+      message: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development'
+    });
+  }
+});
+
+// Error handling middleware
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('Global error:', err);
+  res.status(500).json({
+    error: 'Internal server error',
+    message: err instanceof Error ? err.message : 'Unknown error',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
 });
 
 // Garante que todas as respostas sejam JSON
 app.use((req, res) => {
   res.status(404).json({ error: 'Rota não encontrada' });
-});
-
-// Inicializa a conexão com o MongoDB
-connectDB().catch(error => {
-  console.error('Falha ao conectar ao MongoDB:', error);
 });
 
 export default app; 
