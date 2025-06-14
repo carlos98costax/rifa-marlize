@@ -17,13 +17,13 @@ app.use(cors({
   allowedHeaders: ['Content-Type']
 }));
 
-app.use(express.json());
-
 // Garante que todas as respostas sejam JSON
 app.use((req, res, next) => {
   res.setHeader('Content-Type', 'application/json');
   next();
 });
+
+app.use(express.json());
 
 // Conexão com MongoDB
 const MONGODB_URI = process.env.MONGODB_URI || '';
