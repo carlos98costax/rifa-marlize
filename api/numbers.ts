@@ -72,6 +72,12 @@ async function connectDB() {
     console.log('Tentando conectar ao MongoDB...');
     console.log('URI do MongoDB:', MONGODB_URI.replace(/\/\/[^:]+:[^@]+@/, '//***:***@')); // Oculta credenciais
     
+    // Fecha a conexão existente se houver
+    if (mongoose.connection.readyState !== 0) {
+      console.log('Fechando conexão existente...');
+      await mongoose.connection.close();
+    }
+    
     await mongoose.connect(MONGODB_URI, {
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
@@ -80,7 +86,9 @@ async function connectDB() {
       retryWrites: true,
       retryReads: true,
       connectTimeoutMS: 10000,
-      family: 4 // Força IPv4
+      family: 4, // Força IPv4
+      heartbeatFrequencyMS: 2000,
+      autoIndex: true
     });
     
     console.log('Conectado ao MongoDB com sucesso');
@@ -123,7 +131,8 @@ app.use(async (req, res, next) => {
     res.status(500).json({ 
       error: 'Erro de conexão com o banco de dados',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined,
-      connectionState: mongoose.connection.readyState
+      connectionState: mongoose.connection.readyState,
+      timestamp: new Date().toISOString()
     });
   }
 });
@@ -134,7 +143,8 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   res.status(500).json({
     error: 'Erro interno do servidor',
     details: process.env.NODE_ENV === 'development' ? err.message : undefined,
-    connectionState: mongoose.connection.readyState
+    connectionState: mongoose.connection.readyState,
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -156,7 +166,8 @@ app.get('/api/health', async (req, res) => {
       status: mongoStatus ? 'ok' : 'error',
       mongodb: mongoStatus,
       timestamp: new Date().toISOString(),
-      connectionState: mongoose.connection.readyState
+      connectionState: mongoose.connection.readyState,
+      environment: process.env.NODE_ENV || 'development'
     };
 
     if (!mongoStatus) {
@@ -172,7 +183,9 @@ app.get('/api/health', async (req, res) => {
       status: 'error',
       error: 'Erro ao verificar saúde do sistema',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined,
-      connectionState: mongoose.connection.readyState
+      connectionState: mongoose.connection.readyState,
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development'
     });
   }
 });
@@ -197,7 +210,8 @@ app.get('/api/numbers', async (req, res) => {
     res.status(500).json({ 
       error: 'Erro ao buscar números',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined,
-      connectionState: mongoose.connection.readyState
+      connectionState: mongoose.connection.readyState,
+      timestamp: new Date().toISOString()
     });
   }
 });
@@ -269,7 +283,8 @@ app.post('/api/numbers/purchase', async (req, res) => {
     res.status(500).json({ 
       error: 'Erro ao processar compra',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined,
-      connectionState: mongoose.connection.readyState
+      connectionState: mongoose.connection.readyState,
+      timestamp: new Date().toISOString()
     });
   }
 });
