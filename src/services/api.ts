@@ -1,44 +1,46 @@
-import axios from 'axios'
-
-const API_URL = import.meta.env.VITE_API_URL || 'https://rifa-marlizee.vercel.app/api'
+const API_URL = import.meta.env.PROD 
+  ? '/api/numbers'  // Em produção, usa o caminho relativo
+  : 'http://localhost:3001/api/numbers'  // Em desenvolvimento, usa localhost
 
 export interface RaffleNumber {
   number: number
   isAvailable: boolean
-  purchasedBy?: string
-  purchaseDate?: string
+  purchasedBy: string | null
+  purchaseDate: Date | null
 }
 
 export const api = {
   async getNumbers(): Promise<RaffleNumber[]> {
     try {
-      const response = await axios.get(`${API_URL}/numbers`)
-      return response.data
+      const response = await fetch(`${API_URL}`)
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to fetch numbers')
+      }
+      return response.json()
     } catch (error) {
       console.error('Error fetching numbers:', error)
-      throw new Error('Erro ao carregar os números')
+      throw error
     }
   },
 
-  async purchaseNumbers(numbers: number[], buyerName: string, password: string): Promise<RaffleNumber[]> {
+  async purchaseNumbers(numbers: number[], buyer: string, password: string): Promise<void> {
     try {
-      const response = await axios.post(`${API_URL}/numbers/purchase`, {
-        numbers,
-        buyerName,
-        password
+      const response = await fetch(`${API_URL}/purchase`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ numbers, buyer, password }),
       })
-      
-      if (response.data.allNumbers) {
-        return response.data.allNumbers
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to purchase numbers')
       }
-      
-      throw new Error('Resposta inválida do servidor')
     } catch (error) {
-      if (axios.isAxiosError(error) && error.response?.data?.error) {
-        throw new Error(error.response.data.error)
-      }
       console.error('Error purchasing numbers:', error)
-      throw new Error('Erro ao comprar números')
+      throw error
     }
   },
 

@@ -61,29 +61,13 @@ function App() {
     }
 
     try {
-      // Atualizar o estado local imediatamente
-      setNumbers(prevNumbers => 
-        prevNumbers.map(num => 
-          selectedNumbers.includes(num.number)
-            ? { ...num, isAvailable: false, purchasedBy: buyerName.trim() }
-            : num
-        )
-      )
-
-      // Fazer a requisição para o backend
       await api.purchaseNumbers(selectedNumbers, buyerName.trim(), password.trim())
-      
-      // Recarregar os números do servidor para garantir sincronização
-      await loadNumbers()
-      
       toast.success('Números comprados com sucesso!')
       setSelectedNumbers([])
       setBuyerName('')
       setPassword('')
+      loadNumbers()
     } catch (error) {
-      // Em caso de erro, recarregar os números para garantir estado correto
-      await loadNumbers()
-      
       if (error instanceof Error) {
         toast.error(error.message)
       } else {
