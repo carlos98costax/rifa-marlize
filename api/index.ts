@@ -72,7 +72,7 @@ app.get('/api/health', (_req, res) => {
     status: 'ok',
     timestamp: new Date().toISOString(),
     dbStatus: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-    database: mongoose.connection.db.databaseName
+    database: mongoose.connection.db?.databaseName || 'unknown'
   });
 });
 
