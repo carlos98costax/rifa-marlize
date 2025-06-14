@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 
@@ -12,7 +12,14 @@ app.use(express.json());
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://carlos98costa:1234567890@cluster0.mongodb.net/rifa?retryWrites=true&w=majority';
 
 // Number Schema
-const numberSchema = new mongoose.Schema({
+interface INumber {
+  number: number;
+  isAvailable: boolean;
+  purchasedBy: string | null;
+  purchaseDate: Date | null;
+}
+
+const numberSchema = new mongoose.Schema<INumber>({
   number: { type: Number, required: true, unique: true },
   isAvailable: { type: Boolean, default: true },
   purchasedBy: { type: String, default: null },
@@ -20,10 +27,10 @@ const numberSchema = new mongoose.Schema({
 });
 
 // Create model if it doesn't exist
-const NumberModel = mongoose.models.Number || mongoose.model('Number', numberSchema);
+const NumberModel = mongoose.models.Number || mongoose.model<INumber>('Number', numberSchema);
 
 // Initialize numbers if collection is empty
-async function initializeNumbers() {
+async function initializeNumbers(): Promise<void> {
   try {
     const count = await NumberModel.countDocuments();
     if (count === 0) {
@@ -42,7 +49,7 @@ async function initializeNumbers() {
 }
 
 // Connect to MongoDB with retry logic
-async function connectDB() {
+async function connectDB(): Promise<void> {
   const maxRetries = 3;
   let retryCount = 0;
 
@@ -86,7 +93,7 @@ async function connectDB() {
 }
 
 // Middleware to ensure database connection
-async function ensureConnection(req: express.Request, res: express.Response, next: express.NextFunction) {
+async function ensureConnection(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     await connectDB();
     next();
@@ -104,7 +111,7 @@ async function ensureConnection(req: express.Request, res: express.Response, nex
 app.use(ensureConnection);
 
 // Routes
-app.get('/api/numbers', async (req, res) => {
+app.get('/api/numbers', async (req: Request, res: Response) => {
   try {
     const numbers = await NumberModel.find().sort({ number: 1 });
     res.json(numbers);
@@ -118,7 +125,7 @@ app.get('/api/numbers', async (req, res) => {
   }
 });
 
-app.post('/api/numbers/purchase', async (req, res) => {
+app.post('/api/numbers/purchase', async (req: Request, res: Response) => {
   try {
     const { number, name } = req.body;
 
@@ -169,7 +176,7 @@ app.post('/api/numbers/purchase', async (req, res) => {
 });
 
 // Health check endpoint
-app.get('/api/health', async (req, res) => {
+app.get('/api/health', async (req: Request, res: Response) => {
   try {
     const dbState = mongoose.connection.readyState;
     const status = {
@@ -195,11 +202,11 @@ app.get('/api/health', async (req, res) => {
 });
 
 // Error handling middleware
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error('Global error:', err);
   res.status(500).json({
     error: 'Internal server error',
-    message: err instanceof Error ? err.message : 'Unknown error',
+    message: err.message,
     timestamp: new Date().toISOString()
   });
 });

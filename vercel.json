@@ -2,45 +2,23 @@
   "version": 2,
   "builds": [
     {
+      "src": "api/numbers.ts",
+      "use": "@vercel/node",
+      "config": {
+        "nodeVersion": "22.x"
+      }
+    },
+    {
       "src": "package.json",
       "use": "@vercel/static-build",
       "config": {
         "distDir": "dist"
       }
-    },
-    {
-      "src": "api/**/*.ts",
-      "use": "@vercel/node",
-      "config": {
-        "nodeVersion": "22.x",
-        "includeFiles": ["api/**/*"],
-        "maxDuration": 10
-      }
     }
   ],
   "routes": [
     {
-      "src": "/api/health",
-      "dest": "/api/numbers.ts",
-      "headers": {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
-        "Content-Type": "application/json"
-      }
-    },
-    {
-      "src": "/api/numbers",
-      "dest": "/api/numbers.ts",
-      "headers": {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
-        "Content-Type": "application/json"
-      }
-    },
-    {
-      "src": "/api/numbers/purchase",
+      "src": "/api/(.*)",
       "dest": "/api/numbers.ts",
       "headers": {
         "Access-Control-Allow-Origin": "*",
