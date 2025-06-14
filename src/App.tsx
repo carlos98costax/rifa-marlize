@@ -61,26 +61,29 @@ function App() {
     }
 
     try {
-      const updatedNumbers = await api.purchaseNumbers(selectedNumbers, buyerName.trim(), password.trim())
-      toast.success('Números comprados com sucesso!')
-      
-      // Update the numbers state with the new data
-      setNumbers(prevNumbers => {
-        const newNumbers = [...prevNumbers]
-        updatedNumbers.forEach(updatedNumber => {
-          const index = newNumbers.findIndex(n => n.number === updatedNumber.number)
-          if (index !== -1) {
-            newNumbers[index] = updatedNumber
-          }
-        })
-        return newNumbers
-      })
+      // Atualizar o estado local imediatamente
+      setNumbers(prevNumbers => 
+        prevNumbers.map(num => 
+          selectedNumbers.includes(num.number)
+            ? { ...num, isAvailable: false, purchasedBy: buyerName.trim() }
+            : num
+        )
+      )
 
-      // Clear the form
+      // Fazer a requisição para o backend
+      await api.purchaseNumbers(selectedNumbers, buyerName.trim(), password.trim())
+      
+      // Recarregar os números do servidor para garantir sincronização
+      await loadNumbers()
+      
+      toast.success('Números comprados com sucesso!')
       setSelectedNumbers([])
       setBuyerName('')
       setPassword('')
     } catch (error) {
+      // Em caso de erro, recarregar os números para garantir estado correto
+      await loadNumbers()
+      
       if (error instanceof Error) {
         toast.error(error.message)
       } else {

@@ -125,98 +125,61 @@ app.get('/api/numbers', async (_req: Request, res: Response): Promise<void> => {
   }
 });
 
-app.post('/api/numbers/purchase', async (req: Request, res: Response): Promise<void> => {
+app.post('/api/numbers/purchase', async (req: Request, res: Response) => {
   try {
-    const { numbers, buyer, password } = req.body;
+    const { numbers, buyerName, password } = req.body
 
     if (!numbers || !Array.isArray(numbers) || numbers.length === 0) {
-      res.status(400).json({
-        error: 'Invalid request',
-        message: 'Numbers array is required',
-        timestamp: new Date().toISOString()
-      });
-      return;
+      return res.status(400).json({ error: 'Números inválidos' })
     }
 
-    if (!buyer || typeof buyer !== 'string' || buyer.trim() === '') {
-      res.status(400).json({
-        error: 'Invalid request',
-        message: 'Buyer name is required',
-        timestamp: new Date().toISOString()
-      });
-      return;
+    if (!buyerName || typeof buyerName !== 'string' || buyerName.trim().length === 0) {
+      return res.status(400).json({ error: 'Nome do comprador é obrigatório' })
     }
 
-    if (!password || typeof password !== 'string' || password.trim() === '') {
-      res.status(400).json({
-        error: 'Invalid request',
-        message: 'Password is required',
-        timestamp: new Date().toISOString()
-      });
-      return;
+    if (!password || password !== process.env.ADMIN_PASSWORD) {
+      return res.status(401).json({ error: 'Senha inválida' })
     }
 
-    // Check if all numbers are available
-    const numberDocs = await NumberModel.find({ number: { $in: numbers } });
+    // Verificar se os números estão disponíveis
+    const existingNumbers = await NumberModel.find({ number: { $in: numbers } })
+    const unavailableNumbers = existingNumbers.filter(n => !n.isAvailable)
     
-    if (numberDocs.length !== numbers.length) {
-      res.status(400).json({
-        error: 'Invalid numbers',
-        message: 'Some numbers do not exist',
-        timestamp: new Date().toISOString()
-      });
-      return;
-    }
-
-    const unavailableNumbers = numberDocs.filter(doc => !doc.isAvailable);
     if (unavailableNumbers.length > 0) {
-      res.status(400).json({
-        error: 'Numbers not available',
-        message: `Numbers ${unavailableNumbers.map(n => n.number).join(', ')} are already purchased`,
-        timestamp: new Date().toISOString()
-      });
-      return;
+      return res.status(400).json({ 
+        error: 'Alguns números já foram vendidos',
+        unavailableNumbers: unavailableNumbers.map(n => n.number)
+      })
     }
 
-    // Update all numbers
-    const now = new Date();
-    const buyerName = buyer.trim();
-
-    // Update each number individually to ensure atomicity
-    for (const number of numbers) {
-      await NumberModel.findOneAndUpdate(
+    // Atualizar os números
+    const updatePromises = numbers.map(number => 
+      NumberModel.findOneAndUpdate(
         { number },
-        {
-          $set: {
-            isAvailable: false,
-            purchasedBy: buyerName,
-            purchaseDate: now
-          }
+        { 
+          isAvailable: false,
+          purchasedBy: buyerName.trim(),
+          purchaseDate: new Date()
         },
         { new: true }
-      );
-    }
+      )
+    )
 
-    // Fetch updated numbers
-    const updatedNumbers = await NumberModel.find().sort({ number: 1 });
+    const updatedNumbers = await Promise.all(updatePromises)
 
-    res.json({
-      message: 'Numbers purchased successfully',
-      numbers: numbers,
-      buyer: buyerName,
-      purchaseDate: now,
-      timestamp: new Date().toISOString(),
-      updatedNumbers: updatedNumbers
-    });
+    // Buscar todos os números atualizados
+    const allNumbers = await NumberModel.find().sort({ number: 1 })
+
+    return res.json({
+      message: 'Números comprados com sucesso',
+      purchasedNumbers: updatedNumbers,
+      allNumbers: allNumbers
+    })
   } catch (error) {
-    console.error('Error purchasing numbers:', error);
-    res.status(500).json({
-      error: 'Error purchasing numbers',
-      message: error instanceof Error ? error.message : 'Unknown error',
-      timestamp: new Date().toISOString()
-    });
+    console.error('Error purchasing numbers:', error)
+    return res.status(500).json({ error: 'Erro ao comprar números' })
   }
-});
+})
 
 // Health check endpoint
 app.get('/api/health', async (_req: Request, res: Response): Promise<void> => {
