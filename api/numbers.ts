@@ -1,81 +1,24 @@
-import express, { Request, Response, NextFunction } from 'express';
+import express from 'express';
 import mongoose from 'mongoose';
-import cors from 'cors';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
 const app = express();
 
-// Middleware
-app.use(cors());
-app.use(express.json());
-
-// MongoDB Connection
+// MongoDB connection with retry logic
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://carlos98costa:1234567890@cluster0.mongodb.net/rifa?retryWrites=true&w=majority';
 
-// Number Schema
-interface INumber {
-  number: number;
-  isAvailable: boolean;
-  purchasedBy: string | null;
-  purchaseDate: Date | null;
-}
-
-const numberSchema = new mongoose.Schema<INumber>({
-  number: { type: Number, required: true, unique: true },
-  isAvailable: { type: Boolean, default: true },
-  purchasedBy: { type: String, default: null },
-  purchaseDate: { type: Date, default: null }
-});
-
-// Create model if it doesn't exist
-const NumberModel = mongoose.models.Number || mongoose.model<INumber>('Number', numberSchema);
-
-// Initialize numbers if collection is empty
-async function initializeNumbers(): Promise<void> {
-  try {
-    const count = await NumberModel.countDocuments();
-    if (count === 0) {
-      const numbers = Array.from({ length: 400 }, (_, i) => ({
-        number: i + 1,
-        isAvailable: true,
-        purchasedBy: null,
-        purchaseDate: null
-      }));
-      await NumberModel.insertMany(numbers);
-      console.log('Numbers initialized successfully');
-    }
-  } catch (error) {
-    console.error('Error initializing numbers:', error);
-  }
-}
-
-// Connect to MongoDB with retry logic
 const connectWithRetry = async (): Promise<void> => {
   try {
-    await mongoose.connect(MONGODB_URI, {
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-      family: 4,
-      maxPoolSize: 10,
-      minPoolSize: 5,
-      maxIdleTimeMS: 10000,
-      connectTimeoutMS: 10000,
-      heartbeatFrequencyMS: 10000,
-      retryWrites: true,
-      retryReads: true,
-      autoIndex: true,
-      autoCreate: true
-    });
+    await mongoose.connect(MONGODB_URI);
     console.log('Connected to MongoDB');
-    await initializeNumbers();
   } catch (error) {
     console.error('MongoDB connection error:', error);
     console.log('Retrying connection in 5 seconds...');
     setTimeout(connectWithRetry, 5000);
   }
-}
+};
 
 connectWithRetry();
 
@@ -92,15 +35,15 @@ const ensureConnection = async (_req: express.Request, res: express.Response, ne
   } else {
     next();
   }
-}
+};
 
 // Apply middleware to all routes
 app.use(ensureConnection);
 
-// Routes
+// Get all numbers
 app.get('/api/numbers', async (_req: express.Request, res: express.Response): Promise<void> => {
   try {
-    const numbers = await NumberModel.find().sort({ number: 1 });
+    const numbers = await Number.find().sort({ number: 1 });
     res.json(numbers);
   } catch (error) {
     console.error('Error fetching numbers:', error);
@@ -108,9 +51,10 @@ app.get('/api/numbers', async (_req: express.Request, res: express.Response): Pr
   }
 });
 
+// Purchase numbers
 app.post('/api/numbers/purchase', async (req: express.Request, res: express.Response): Promise<void> => {
   try {
-    const { numbers, buyerName, password } = req.body
+    const { numbers, buyerName, password } = req.body;
 
     if (!numbers || !Array.isArray(numbers) || numbers.length === 0) {
       res.status(400).json({ error: 'Números inválidos' });
@@ -128,7 +72,7 @@ app.post('/api/numbers/purchase', async (req: express.Request, res: express.Resp
     }
 
     // Verificar se os números estão disponíveis
-    const existingNumbers = await NumberModel.find({ number: { $in: numbers } });
+    const existingNumbers = await Number.find({ number: { $in: numbers } });
     const unavailableNumbers = existingNumbers.filter(n => !n.isAvailable);
     
     if (unavailableNumbers.length > 0) {
@@ -141,12 +85,12 @@ app.post('/api/numbers/purchase', async (req: express.Request, res: express.Resp
 
     // Atualizar os números
     const updatePromises = numbers.map(number => 
-      NumberModel.findOneAndUpdate(
+      Number.findOneAndUpdate(
         { number },
         { 
           isAvailable: false,
           purchasedBy: buyerName.trim(),
-          purchaseDate: new Date()
+          purchasedAt: new Date()
         },
         { new: true }
       )
@@ -155,7 +99,7 @@ app.post('/api/numbers/purchase', async (req: express.Request, res: express.Resp
     const updatedNumbers = await Promise.all(updatePromises);
 
     // Buscar todos os números atualizados
-    const allNumbers = await NumberModel.find().sort({ number: 1 });
+    const allNumbers = await Number.find().sort({ number: 1 });
 
     res.json({
       message: 'Números comprados com sucesso',
@@ -174,16 +118,6 @@ app.get('/api/health', (_req: express.Request, res: express.Response): void => {
     status: 'ok', 
     timestamp: new Date().toISOString(),
     dbStatus: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
-  });
-});
-
-// Error handling middleware
-app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction): void => {
-  console.error('Global error:', err);
-  res.status(500).json({
-    error: 'Internal server error',
-    message: err.message,
-    timestamp: new Date().toISOString()
   });
 });
 
