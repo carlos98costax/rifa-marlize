@@ -40,6 +40,7 @@ function App() {
   }
 
   const handleNumberClick = (number: number) => {
+    console.log('Clicked number:', number)
     const raffleNumber = numbers.find(n => n.number === number)
     if (!raffleNumber?.isAvailable) {
       toast.error('Este número já foi vendido!')
@@ -47,10 +48,11 @@ function App() {
     }
 
     setSelectedNumbers(prev => {
-      if (prev.includes(number)) {
-        return prev.filter(n => n !== number)
-      }
-      return [...prev, number]
+      const newSelected = prev.includes(number)
+        ? prev.filter(n => n !== number)
+        : [...prev, number]
+      console.log('New selected numbers:', newSelected)
+      return newSelected
     })
   }
 
@@ -167,6 +169,7 @@ function App() {
 
           {/* Numbers Grid */}
           <div className="grid grid-cols-8 sm:grid-cols-10 md:grid-cols-12 lg:grid-cols-16 gap-2 mb-8">
+            {console.log('Rendering with selected numbers:', selectedNumbers)}
             {numbers.map((number) => (
               <button
                 key={number.number}
@@ -182,12 +185,14 @@ function App() {
                   }
                 `}
               >
-                <span className="block text-base font-semibold">{number.number}</span>
-                {!number.isAvailable && number.purchasedBy && (
-                  <span className="block text-gray-500 text-[10px] leading-tight mt-1">
-                    Vendido: {number.purchasedBy}
-                  </span>
-                )}
+                <div className="relative z-10">
+                  <span className="block text-base font-semibold">{number.number}</span>
+                  {!number.isAvailable && number.purchasedBy && (
+                    <span className="block text-gray-500 text-[10px] leading-tight mt-1">
+                      Vendido: {number.purchasedBy}
+                    </span>
+                  )}
+                </div>
                 {selectedNumbers.includes(number.number) && (
                   <span className="absolute -top-1 -right-1 bg-blue-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
                     <CheckIcon className="w-3 h-3" />
@@ -198,22 +203,19 @@ function App() {
           </div>
 
           {/* Purchase Button */}
-          <div className="text-center">
-            <button
-              onClick={handlePurchase}
-              disabled={selectedNumbers.length === 0 || !buyerName.trim() || !password.trim()}
-              className={`
-                px-8 py-4 rounded-lg text-lg font-semibold transition-all duration-300
-                ${selectedNumbers.length === 0 || !buyerName.trim() || !password.trim()
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 transform hover:scale-105 shadow-lg'
-                }
-              `}
-            >
-              Comprar {selectedNumbers.length} Número{selectedNumbers.length !== 1 ? 's' : ''} 
-              {selectedNumbers.length > 0 && ` - R$ ${(selectedNumbers.length * 20).toFixed(2)}`}
-            </button>
-          </div>
+          <button
+            onClick={handlePurchase}
+            disabled={selectedNumbers.length === 0 || !buyerName.trim() || !password.trim()}
+            className={`
+              w-full py-3 px-6 rounded-lg text-white font-semibold transition-all duration-200
+              ${selectedNumbers.length === 0 || !buyerName.trim() || !password.trim()
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700 transform hover:scale-[1.02]'
+              }
+            `}
+          >
+            Comprar {selectedNumbers.length} Número{selectedNumbers.length !== 1 ? 's' : ''}
+          </button>
         </div>
       </div>
 
