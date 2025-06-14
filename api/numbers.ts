@@ -64,29 +64,24 @@ const NumberModel = mongoose.model<INumber>('Number', numberSchema);
 // Conecta ao MongoDB
 async function connectDB() {
   try {
-    if (mongoose.connection.readyState === 1) {
-      console.log('Já conectado ao MongoDB');
-      return;
-    }
-
-    console.log('Tentando conectar ao MongoDB...');
-    console.log('URI do MongoDB:', MONGODB_URI.replace(/\/\/[^:]+:[^@]+@/, '//***:***@')); // Oculta credenciais
-    
     // Fecha a conexão existente se houver
     if (mongoose.connection.readyState !== 0) {
       console.log('Fechando conexão existente...');
       await mongoose.connection.close();
     }
+
+    console.log('Tentando conectar ao MongoDB...');
+    console.log('URI do MongoDB:', MONGODB_URI.replace(/\/\/[^:]+:[^@]+@/, '//***:***@')); // Oculta credenciais
     
     await mongoose.connect(MONGODB_URI, {
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
-      maxPoolSize: 1, // Reduzido para serverless
-      minPoolSize: 0, // Reduzido para serverless
+      maxPoolSize: 1,
+      minPoolSize: 0,
       retryWrites: true,
       retryReads: true,
       connectTimeoutMS: 10000,
-      family: 4, // Força IPv4
+      family: 4,
       heartbeatFrequencyMS: 2000,
       autoIndex: true
     });
@@ -289,14 +284,14 @@ app.post('/api/numbers/purchase', async (req, res) => {
   }
 });
 
-// Inicializa a conexão com o MongoDB
-connectDB().catch(error => {
-  console.error('Falha ao conectar ao MongoDB:', error);
-});
-
 // Garante que todas as respostas sejam JSON
 app.use((req, res) => {
   res.status(404).json({ error: 'Rota não encontrada' });
+});
+
+// Inicializa a conexão com o MongoDB
+connectDB().catch(error => {
+  console.error('Falha ao conectar ao MongoDB:', error);
 });
 
 export default app; 
