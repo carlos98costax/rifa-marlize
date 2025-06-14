@@ -15,7 +15,7 @@
       "config": {
         "distDir": "dist",
         "buildCommand": "npm run build",
-        "installCommand": "npm install && chmod +x node_modules/.bin/tsc"
+        "installCommand": "npm install"
       }
     }
   ],
