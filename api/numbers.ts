@@ -52,7 +52,7 @@ async function initializeNumbers(): Promise<void> {
 }
 
 // Connect to MongoDB with retry logic
-const connectWithRetry = async () => {
+const connectWithRetry = async (): Promise<void> => {
   try {
     await mongoose.connect(MONGODB_URI, {
       serverSelectionTimeoutMS: 5000,
@@ -80,23 +80,25 @@ const connectWithRetry = async () => {
 connectWithRetry();
 
 // Middleware to ensure database connection
-const ensureConnection = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+const ensureConnection = async (_req: express.Request, res: express.Response, next: express.NextFunction): Promise<void> => {
   if (mongoose.connection.readyState !== 1) {
     try {
       await connectWithRetry();
+      next();
     } catch (error) {
       console.error('Database connection error:', error);
-      return res.status(500).json({ error: 'Database connection error' });
+      res.status(500).json({ error: 'Database connection error' });
     }
+  } else {
+    next();
   }
-  next();
 }
 
 // Apply middleware to all routes
 app.use(ensureConnection);
 
 // Routes
-app.get('/api/numbers', async (_req: Request, res: Response): Promise<void> => {
+app.get('/api/numbers', async (_req: express.Request, res: express.Response): Promise<void> => {
   try {
     const numbers = await NumberModel.find().sort({ number: 1 });
     res.json(numbers);
@@ -106,31 +108,35 @@ app.get('/api/numbers', async (_req: Request, res: Response): Promise<void> => {
   }
 });
 
-app.post('/api/numbers/purchase', async (req: Request, res: Response) => {
+app.post('/api/numbers/purchase', async (req: express.Request, res: express.Response): Promise<void> => {
   try {
     const { numbers, buyerName, password } = req.body
 
     if (!numbers || !Array.isArray(numbers) || numbers.length === 0) {
-      return res.status(400).json({ error: 'Números inválidos' })
+      res.status(400).json({ error: 'Números inválidos' });
+      return;
     }
 
     if (!buyerName || typeof buyerName !== 'string' || buyerName.trim().length === 0) {
-      return res.status(400).json({ error: 'Nome do comprador é obrigatório' })
+      res.status(400).json({ error: 'Nome do comprador é obrigatório' });
+      return;
     }
 
     if (!password || password !== process.env.ADMIN_PASSWORD) {
-      return res.status(401).json({ error: 'Senha inválida' })
+      res.status(401).json({ error: 'Senha inválida' });
+      return;
     }
 
     // Verificar se os números estão disponíveis
-    const existingNumbers = await NumberModel.find({ number: { $in: numbers } })
-    const unavailableNumbers = existingNumbers.filter(n => !n.isAvailable)
+    const existingNumbers = await NumberModel.find({ number: { $in: numbers } });
+    const unavailableNumbers = existingNumbers.filter(n => !n.isAvailable);
     
     if (unavailableNumbers.length > 0) {
-      return res.status(400).json({ 
+      res.status(400).json({ 
         error: 'Alguns números já foram vendidos',
         unavailableNumbers: unavailableNumbers.map(n => n.number)
-      })
+      });
+      return;
     }
 
     // Atualizar os números
@@ -144,26 +150,26 @@ app.post('/api/numbers/purchase', async (req: Request, res: Response) => {
         },
         { new: true }
       )
-    )
+    );
 
-    const updatedNumbers = await Promise.all(updatePromises)
+    const updatedNumbers = await Promise.all(updatePromises);
 
     // Buscar todos os números atualizados
-    const allNumbers = await NumberModel.find().sort({ number: 1 })
+    const allNumbers = await NumberModel.find().sort({ number: 1 });
 
-    return res.json({
+    res.json({
       message: 'Números comprados com sucesso',
       purchasedNumbers: updatedNumbers,
       allNumbers: allNumbers
-    })
+    });
   } catch (error) {
-    console.error('Error purchasing numbers:', error)
-    return res.status(500).json({ error: 'Erro ao comprar números' })
+    console.error('Error purchasing numbers:', error);
+    res.status(500).json({ error: 'Erro ao comprar números' });
   }
-})
+});
 
 // Health check endpoint
-app.get('/api/health', (_req: Request, res: Response): void => {
+app.get('/api/health', (_req: express.Request, res: express.Response): void => {
   res.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
@@ -172,7 +178,7 @@ app.get('/api/health', (_req: Request, res: Response): void => {
 });
 
 // Error handling middleware
-app.use((err: Error, _req: Request, res: Response, _next: NextFunction): void => {
+app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction): void => {
   console.error('Global error:', err);
   res.status(500).json({
     error: 'Internal server error',
