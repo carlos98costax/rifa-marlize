@@ -1,136 +1,90 @@
 import express from 'express';
 import mongoose from 'mongoose';
-import { config } from 'dotenv';
 import cors from 'cors';
-
-// Carrega as variáveis de ambiente
-config();
 
 const app = express();
 
-// Configuração do CORS
-app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://rifa-marlizee.vercel.app', 'https://www.rifa-marlizee.vercel.app']
-    : '*',
-  methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type']
-}));
-
-// Garante que todas as respostas sejam JSON
-app.use((req, res, next) => {
-  res.setHeader('Content-Type', 'application/json');
-  next();
-});
-
+// Middleware
+app.use(cors());
 app.use(express.json());
 
 // MongoDB Connection
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://carlos98costa:1234567890@cluster0.mongodb.net/rifa?retryWrites=true&w=majority';
 
-let isConnected = false;
-let connectionPromise: Promise<typeof mongoose> | null = null;
+// Number Schema
+const numberSchema = new mongoose.Schema({
+  number: { type: Number, required: true, unique: true },
+  isAvailable: { type: Boolean, default: true },
+  purchasedBy: { type: String, default: null },
+  purchaseDate: { type: Date, default: null }
+});
 
-async function connectToDatabase() {
-  if (isConnected) {
-    console.log('Using existing database connection');
-    return;
-  }
+// Create model if it doesn't exist
+const NumberModel = mongoose.models.Number || mongoose.model('Number', numberSchema);
 
-  if (connectionPromise) {
-    console.log('Connection already in progress, waiting...');
-    return connectionPromise;
-  }
-
+// Initialize numbers if collection is empty
+async function initializeNumbers() {
   try {
-    console.log('Connecting to MongoDB...');
-    connectionPromise = mongoose.connect(MONGODB_URI, {
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-      family: 4,
-      maxPoolSize: 10,
-      minPoolSize: 5,
-      maxIdleTimeMS: 10000,
-      connectTimeoutMS: 10000,
-      heartbeatFrequencyMS: 10000,
-      retryWrites: true,
-      retryReads: true,
-    });
+    const count = await NumberModel.countDocuments();
+    if (count === 0) {
+      const numbers = Array.from({ length: 400 }, (_, i) => ({
+        number: i + 1,
+        isAvailable: true,
+        purchasedBy: null,
+        purchaseDate: null
+      }));
+      await NumberModel.insertMany(numbers);
+      console.log('Numbers initialized successfully');
+    }
+  } catch (error) {
+    console.error('Error initializing numbers:', error);
+  }
+}
 
-    const conn = await connectionPromise;
-    isConnected = true;
-    console.log('MongoDB connected successfully');
-    return conn;
+// Connect to MongoDB
+async function connectDB() {
+  try {
+    if (mongoose.connection.readyState === 0) {
+      await mongoose.connect(MONGODB_URI, {
+        serverSelectionTimeoutMS: 5000,
+        socketTimeoutMS: 45000,
+        family: 4,
+        maxPoolSize: 10,
+        minPoolSize: 5,
+        maxIdleTimeMS: 10000,
+        connectTimeoutMS: 10000,
+        heartbeatFrequencyMS: 10000,
+        retryWrites: true,
+        retryReads: true,
+      });
+      console.log('MongoDB connected successfully');
+      await initializeNumbers();
+    }
   } catch (error) {
     console.error('MongoDB connection error:', error);
-    connectionPromise = null;
-    isConnected = false;
     throw error;
   }
 }
 
-// Middleware to check MongoDB connection
-app.use(async (req, res, next) => {
-  try {
-    await connectToDatabase();
-    next();
-  } catch (error) {
-    console.error('Database connection error:', error);
-    res.status(500).json({
-      error: 'Database connection error',
-      message: error instanceof Error ? error.message : 'Unknown error',
-      timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV || 'development'
-    });
-  }
-});
-
-// Modelo do MongoDB
-interface INumber {
-  id: number;
-  buyer: string;
-  selected: boolean;
-}
-
-const numberSchema = new mongoose.Schema<INumber>({
-  id: {
-    type: Number,
-    required: true,
-    unique: true
-  },
-  buyer: {
-    type: String,
-    default: ''
-  },
-  selected: {
-    type: Boolean,
-    default: false
-  }
-}, {
-  timestamps: true
-});
-
-// Define o modelo antes de qualquer uso
-const NumberModel = mongoose.model<INumber>('Number', numberSchema);
-
 // Routes
 app.get('/api/numbers', async (req, res) => {
   try {
-    const numbers = await NumberModel.find().sort({ id: 1 });
+    await connectDB();
+    const numbers = await NumberModel.find().sort({ number: 1 });
     res.json(numbers);
   } catch (error) {
     console.error('Error fetching numbers:', error);
     res.status(500).json({
       error: 'Error fetching numbers',
       message: error instanceof Error ? error.message : 'Unknown error',
-      timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV || 'development'
+      timestamp: new Date().toISOString()
     });
   }
 });
 
 app.post('/api/numbers/purchase', async (req, res) => {
   try {
+    await connectDB();
     const { number, name } = req.body;
 
     if (!number || !name) {
@@ -141,7 +95,7 @@ app.post('/api/numbers/purchase', async (req, res) => {
       });
     }
 
-    const numberDoc = await NumberModel.findOne({ id: number });
+    const numberDoc = await NumberModel.findOne({ number });
 
     if (!numberDoc) {
       return res.status(404).json({
@@ -151,7 +105,7 @@ app.post('/api/numbers/purchase', async (req, res) => {
       });
     }
 
-    if (!numberDoc.selected) {
+    if (!numberDoc.isAvailable) {
       return res.status(400).json({
         error: 'Number not available',
         message: `Number ${number} is already purchased`,
@@ -159,8 +113,9 @@ app.post('/api/numbers/purchase', async (req, res) => {
       });
     }
 
-    numberDoc.buyer = name;
-    numberDoc.selected = false;
+    numberDoc.isAvailable = false;
+    numberDoc.purchasedBy = name;
+    numberDoc.purchaseDate = new Date();
     await numberDoc.save();
 
     res.json({
@@ -173,8 +128,7 @@ app.post('/api/numbers/purchase', async (req, res) => {
     res.status(500).json({
       error: 'Error purchasing number',
       message: error instanceof Error ? error.message : 'Unknown error',
-      timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV || 'development'
+      timestamp: new Date().toISOString()
     });
   }
 });
@@ -182,26 +136,24 @@ app.post('/api/numbers/purchase', async (req, res) => {
 // Health check endpoint
 app.get('/api/health', async (req, res) => {
   try {
+    await connectDB();
     const dbState = mongoose.connection.readyState;
-    const status = {
+    res.json({
       status: 'ok',
       timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV || 'development',
       database: {
         state: dbState,
         connected: dbState === 1,
         stateName: ['disconnected', 'connected', 'connecting', 'disconnecting'][dbState] || 'unknown'
       }
-    };
-    res.json(status);
+    });
   } catch (error) {
     console.error('Health check error:', error);
     res.status(500).json({
       status: 'error',
       error: 'Health check failed',
       message: error instanceof Error ? error.message : 'Unknown error',
-      timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV || 'development'
+      timestamp: new Date().toISOString()
     });
   }
 });
@@ -212,14 +164,8 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   res.status(500).json({
     error: 'Internal server error',
     message: err instanceof Error ? err.message : 'Unknown error',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
+    timestamp: new Date().toISOString()
   });
-});
-
-// Garante que todas as respostas sejam JSON
-app.use((req, res) => {
-  res.status(404).json({ error: 'Rota não encontrada' });
 });
 
 export default app; 
