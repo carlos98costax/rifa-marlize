@@ -2,11 +2,11 @@ import express, { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 
-const app = express();
+const router = express.Router();
 
 // Middleware
-app.use(cors());
-app.use(express.json());
+router.use(cors());
+router.use(express.json());
 
 // MongoDB Connection
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://carlos98costa:1234567890@cluster0.mongodb.net/rifa?retryWrites=true&w=majority';
@@ -48,70 +48,11 @@ async function initializeNumbers(): Promise<void> {
   }
 }
 
-// Connect to MongoDB with retry logic
-async function connectDB(): Promise<void> {
-  const maxRetries = 3;
-  let retryCount = 0;
-
-  while (retryCount < maxRetries) {
-    try {
-      if (mongoose.connection.readyState === 0) {
-        console.log(`Attempting to connect to MongoDB (attempt ${retryCount + 1}/${maxRetries})...`);
-        
-        await mongoose.connect(MONGODB_URI, {
-          serverSelectionTimeoutMS: 5000,
-          socketTimeoutMS: 45000,
-          family: 4,
-          maxPoolSize: 10,
-          minPoolSize: 5,
-          maxIdleTimeMS: 10000,
-          connectTimeoutMS: 10000,
-          heartbeatFrequencyMS: 10000,
-          retryWrites: true,
-          retryReads: true,
-          autoIndex: true,
-          autoCreate: true
-        });
-
-        console.log('MongoDB connected successfully');
-        await initializeNumbers();
-        return;
-      }
-      return;
-    } catch (error) {
-      retryCount++;
-      console.error(`MongoDB connection attempt ${retryCount} failed:`, error);
-      
-      if (retryCount === maxRetries) {
-        throw new Error(`Failed to connect to MongoDB after ${maxRetries} attempts`);
-      }
-      
-      // Wait before retrying
-      await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-    }
-  }
-}
-
-// Middleware to ensure database connection
-async function ensureConnection(_req: Request, res: Response, next: NextFunction): Promise<void> {
-  try {
-    await connectDB();
-    next();
-  } catch (error) {
-    console.error('Database connection error:', error);
-    res.status(500).json({
-      error: 'Database connection error',
-      message: error instanceof Error ? error.message : 'Unknown error',
-      timestamp: new Date().toISOString()
-    });
-  }
-}
-
-// Apply connection middleware to all routes
-app.use(ensureConnection);
+// Initialize numbers on startup
+initializeNumbers();
 
 // Routes
-app.get('/api/numbers', async (_req: Request, res: Response): Promise<void> => {
+router.get('/numbers', async (_req: Request, res: Response): Promise<void> => {
   try {
     const numbers = await NumberModel.find().sort({ number: 1 });
     res.json(numbers);
@@ -125,7 +66,7 @@ app.get('/api/numbers', async (_req: Request, res: Response): Promise<void> => {
   }
 });
 
-app.post('/api/numbers/purchase', async (req: Request, res: Response): Promise<void> => {
+router.post('/numbers/purchase', async (req: Request, res: Response): Promise<void> => {
   try {
     const { numbers, buyer, password } = req.body;
 
@@ -209,7 +150,7 @@ app.post('/api/numbers/purchase', async (req: Request, res: Response): Promise<v
 });
 
 // Health check endpoint
-app.get('/api/health', async (_req: Request, res: Response): Promise<void> => {
+router.get('/health', async (_req: Request, res: Response): Promise<void> => {
   try {
     const dbState = mongoose.connection.readyState;
     const status = {
@@ -235,7 +176,7 @@ app.get('/api/health', async (_req: Request, res: Response): Promise<void> => {
 });
 
 // Error handling middleware
-app.use((err: Error, _req: Request, res: Response, _next: NextFunction): void => {
+router.use((err: Error, _req: Request, res: Response, _next: NextFunction): void => {
   console.error('Global error:', err);
   res.status(500).json({
     error: 'Internal server error',
@@ -244,4 +185,4 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction): void =>
   });
 });
 
-export default app; 
+export default router; 
