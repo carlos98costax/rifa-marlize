@@ -2,6 +2,7 @@
   "name": "sistema-rifa",
   "version": "1.0.0",
   "description": "Sistema de Rifa",
+  "type": "module",
   "main": "api/numbers.ts",
   "scripts": {
     "build": "vite build && tsc",
@@ -18,6 +19,7 @@
     "mongoose": "^8.2.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-hot-toast": "^2.4.1",
     "react-router-dom": "^6.22.2",
     "react-toastify": "^10.0.4"
   },
