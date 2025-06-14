@@ -9,6 +9,24 @@ const app = express();
 // MongoDB connection with retry logic
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://carlos98costa:1234567890@cluster0.mongodb.net/rifa?retryWrites=true&w=majority';
 
+// Number Schema
+interface INumber {
+  number: number;
+  isAvailable: boolean;
+  purchasedBy: string | null;
+  purchasedAt: Date | null;
+}
+
+const numberSchema = new mongoose.Schema<INumber>({
+  number: { type: Number, required: true, unique: true },
+  isAvailable: { type: Boolean, default: true },
+  purchasedBy: { type: String, default: null },
+  purchasedAt: { type: Date, default: null }
+});
+
+// Create model if it doesn't exist
+const NumberModel = mongoose.models.Number || mongoose.model<INumber>('Number', numberSchema);
+
 const connectWithRetry = async (): Promise<void> => {
   try {
     await mongoose.connect(MONGODB_URI);
@@ -43,7 +61,7 @@ app.use(ensureConnection);
 // Get all numbers
 app.get('/api/numbers', async (_req: express.Request, res: express.Response): Promise<void> => {
   try {
-    const numbers = await Number.find().sort({ number: 1 });
+    const numbers = await NumberModel.find().sort({ number: 1 });
     res.json(numbers);
   } catch (error) {
     console.error('Error fetching numbers:', error);
@@ -72,7 +90,7 @@ app.post('/api/numbers/purchase', async (req: express.Request, res: express.Resp
     }
 
     // Verificar se os números estão disponíveis
-    const existingNumbers = await Number.find({ number: { $in: numbers } });
+    const existingNumbers = await NumberModel.find({ number: { $in: numbers } });
     const unavailableNumbers = existingNumbers.filter(n => !n.isAvailable);
     
     if (unavailableNumbers.length > 0) {
@@ -85,7 +103,7 @@ app.post('/api/numbers/purchase', async (req: express.Request, res: express.Resp
 
     // Atualizar os números
     const updatePromises = numbers.map(number => 
-      Number.findOneAndUpdate(
+      NumberModel.findOneAndUpdate(
         { number },
         { 
           isAvailable: false,
@@ -99,7 +117,7 @@ app.post('/api/numbers/purchase', async (req: express.Request, res: express.Resp
     const updatedNumbers = await Promise.all(updatePromises);
 
     // Buscar todos os números atualizados
-    const allNumbers = await Number.find().sort({ number: 1 });
+    const allNumbers = await NumberModel.find().sort({ number: 1 });
 
     res.json({
       message: 'Números comprados com sucesso',
