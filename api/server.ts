@@ -147,4 +147,7 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction): void =>
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
   initializeNumbers();
-}); 
+});
+
+// Export the Express app for Vercel
+export default app; 

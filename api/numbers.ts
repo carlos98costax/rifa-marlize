@@ -93,7 +93,7 @@ async function connectDB(): Promise<void> {
 }
 
 // Middleware to ensure database connection
-async function ensureConnection(req: Request, res: Response, next: NextFunction): Promise<void> {
+async function ensureConnection(_req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     await connectDB();
     next();
@@ -111,7 +111,7 @@ async function ensureConnection(req: Request, res: Response, next: NextFunction)
 app.use(ensureConnection);
 
 // Routes
-app.get('/api/numbers', async (req: Request, res: Response) => {
+app.get('/api/numbers', async (_req: Request, res: Response): Promise<void> => {
   try {
     const numbers = await NumberModel.find().sort({ number: 1 });
     res.json(numbers);
@@ -125,34 +125,37 @@ app.get('/api/numbers', async (req: Request, res: Response) => {
   }
 });
 
-app.post('/api/numbers/purchase', async (req: Request, res: Response) => {
+app.post('/api/numbers/purchase', async (req: Request, res: Response): Promise<void> => {
   try {
     const { number, name } = req.body;
 
     if (!number || !name) {
-      return res.status(400).json({
+      res.status(400).json({
         error: 'Missing required fields',
         message: 'Number and name are required',
         timestamp: new Date().toISOString()
       });
+      return;
     }
 
     const numberDoc = await NumberModel.findOne({ number });
 
     if (!numberDoc) {
-      return res.status(404).json({
+      res.status(404).json({
         error: 'Number not found',
         message: `Number ${number} does not exist`,
         timestamp: new Date().toISOString()
       });
+      return;
     }
 
     if (!numberDoc.isAvailable) {
-      return res.status(400).json({
+      res.status(400).json({
         error: 'Number not available',
         message: `Number ${number} is already purchased`,
         timestamp: new Date().toISOString()
       });
+      return;
     }
 
     numberDoc.isAvailable = false;
@@ -176,7 +179,7 @@ app.post('/api/numbers/purchase', async (req: Request, res: Response) => {
 });
 
 // Health check endpoint
-app.get('/api/health', async (req: Request, res: Response) => {
+app.get('/api/health', async (_req: Request, res: Response): Promise<void> => {
   try {
     const dbState = mongoose.connection.readyState;
     const status = {
@@ -202,7 +205,7 @@ app.get('/api/health', async (req: Request, res: Response) => {
 });
 
 // Error handling middleware
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction): void => {
   console.error('Global error:', err);
   res.status(500).json({
     error: 'Internal server error',
