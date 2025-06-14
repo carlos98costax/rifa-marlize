@@ -182,10 +182,10 @@ function App() {
                   }
                 `}
               >
-                {number.number}
+                <span className="block text-base font-semibold">{number.number}</span>
                 {!number.isAvailable && number.purchasedBy && (
-                  <span className="absolute inset-0 flex flex-col items-center justify-center bg-gray-800 bg-opacity-75 rounded-lg text-white text-[10px] leading-tight p-1">
-                    <span className="font-medium">{number.purchasedBy}</span>
+                  <span className="block text-gray-500 text-[10px] leading-tight mt-1">
+                    Vendido: {number.purchasedBy}
                   </span>
                 )}
                 {selectedNumbers.includes(number.number) && (
