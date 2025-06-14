@@ -1,7 +1,8 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
+import mongoose, { Document, Model, Schema } from 'mongoose';
 import cors from 'cors';
-import mongoose from 'mongoose';
 import { config } from 'dotenv';
+import * as yup from 'yup';
 
 // Carrega as variáveis de ambiente
 config();
@@ -23,30 +24,24 @@ if (!MONGODB_URI) {
 
 // Modelo do MongoDB
 interface INumber {
-  id: number;
-  buyer: string;
-  selected: boolean;
+  number: number;
+  isSelected: boolean;
+  selectedAt?: Date;
 }
 
-const numberSchema = new mongoose.Schema<INumber>({
-  id: {
-    type: Number,
-    required: true,
-    unique: true
-  },
-  buyer: {
-    type: String,
-    default: ''
-  },
-  selected: {
-    type: Boolean,
-    default: false
-  }
-}, {
-  timestamps: true
+// Create the Number model
+const numberSchema = new Schema<INumber>({
+  number: { type: Number, required: true, unique: true },
+  isSelected: { type: Boolean, default: false },
+  selectedAt: { type: Date }
 });
 
-const Number = mongoose.model<INumber>('Number', numberSchema);
+const NumberModel = mongoose.model<INumber>('Number', numberSchema);
+
+// Validation schema
+const numberValidationSchema: yup.ObjectSchema<any> = yup.object().shape({
+  number: yup.number().required().min(1).max(100)
+});
 
 // Middleware para verificar senha administrativa
 const checkAdminPassword = (req, res, next) => {
@@ -64,15 +59,14 @@ async function connectDB() {
     console.log('Conectado ao MongoDB');
 
     // Inicializa os números se a coleção estiver vazia
-    const count = await Number.countDocuments();
+    const count = await NumberModel.countDocuments();
     if (count === 0) {
       console.log('Inicializando números no MongoDB...');
       const numbers = Array.from({ length: 400 }, (_, i) => ({
-        id: i + 1,
-        buyer: '',
-        selected: false
+        number: i + 1,
+        isSelected: false
       }));
-      await Number.insertMany(numbers);
+      await NumberModel.insertMany(numbers);
       console.log('Números inicializados com sucesso');
     }
   } catch (error) {
@@ -82,9 +76,9 @@ async function connectDB() {
 }
 
 // Rotas
-app.get('/api/numbers', async (req, res) => {
+app.get('/api/numbers', async (req: Request, res: Response) => {
   try {
-    const numbers = await Number.find().sort({ id: 1 });
+    const numbers = await NumberModel.find().sort({ number: 1 });
     res.json(numbers);
   } catch (error) {
     console.error('Erro ao buscar números:', error);
@@ -92,7 +86,7 @@ app.get('/api/numbers', async (req, res) => {
   }
 });
 
-app.post('/api/purchase', async (req, res) => {
+app.post('/api/purchase', async (req: Request, res: Response) => {
   try {
     const { numbers, buyer, password } = req.body;
     
@@ -113,25 +107,25 @@ app.post('/api/purchase', async (req, res) => {
     }
 
     // Verifica se algum número já foi vendido
-    const soldNumbers = await Number.find({
-      id: { $in: numbers },
-      buyer: { $ne: '' }
+    const soldNumbers = await NumberModel.find({
+      number: { $in: numbers },
+      isSelected: true
     });
 
     if (soldNumbers.length > 0) {
       return res.status(400).json({
         error: 'Alguns números já foram vendidos',
-        soldNumbers: soldNumbers.map(n => n.id)
+        soldNumbers: soldNumbers.map(n => n.number)
       });
     }
 
     // Atualiza os números
-    await Number.updateMany(
-      { id: { $in: numbers } },
+    await NumberModel.updateMany(
+      { number: { $in: numbers } },
       { 
         $set: { 
-          buyer: buyer.trim(),
-          selected: true
+          isSelected: true,
+          selectedAt: new Date()
         }
       }
     );
@@ -144,24 +138,24 @@ app.post('/api/purchase', async (req, res) => {
 });
 
 // Endpoint administrativo
-app.get('/api/admin/numbers', checkAdminPassword, async (req, res) => {
+app.get('/api/admin/numbers', checkAdminPassword, async (req: Request, res: Response) => {
   try {
     const { buyer, selected } = req.query;
-    let query: { buyer?: string; selected?: boolean } = {};
+    let query: { buyer?: string; isSelected?: boolean } = {};
 
     if (buyer) {
       query.buyer = buyer as string;
     }
     if (selected !== undefined) {
-      query.selected = selected === 'true';
+      query.isSelected = selected === 'true';
     }
 
-    const numbers = await Number.find(query).sort({ id: 1 });
+    const numbers = await NumberModel.find(query).sort({ number: 1 });
     
     // Estatísticas
-    const total = await Number.countDocuments();
-    const sold = await Number.countDocuments({ buyer: { $ne: '' } });
-    const available = await Number.countDocuments({ buyer: '' });
+    const total = await NumberModel.countDocuments();
+    const sold = await NumberModel.countDocuments({ isSelected: true });
+    const available = await NumberModel.countDocuments({ isSelected: false });
     
     res.json({
       numbers,
@@ -176,6 +170,43 @@ app.get('/api/admin/numbers', checkAdminPassword, async (req, res) => {
     console.error('Erro ao buscar dados:', error);
     res.status(500).json({ error: 'Erro ao buscar dados' });
   }
+});
+
+// Health check endpoint
+app.get('/api/health', (_req: Request, res: Response) => {
+  res.json({ status: 'ok' });
+});
+
+// Get selected numbers
+app.get('/api/selected', async (_req: Request, res: Response) => {
+  try {
+    const selectedNumbers = await NumberModel.find({ isSelected: true })
+      .sort({ selectedAt: 1 });
+    res.json(selectedNumbers);
+  } catch (error) {
+    console.error('Error fetching selected numbers:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Reset all numbers
+app.post('/api/reset', async (_req: Request, res: Response) => {
+  try {
+    await NumberModel.updateMany(
+      { isSelected: true },
+      { $set: { isSelected: false, selectedAt: null } }
+    );
+    res.json({ message: 'All numbers have been reset' });
+  } catch (error) {
+    console.error('Error resetting numbers:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Error handling middleware
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Something broke!' });
 });
 
 // Inicia o servidor apenas em desenvolvimento
