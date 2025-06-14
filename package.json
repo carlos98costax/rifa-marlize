@@ -9,7 +9,8 @@
     "postinstall": "chmod +x node_modules/.bin/tsc",
     "build": "vite build && tsc",
     "dev": "vite",
-    "start": "node dist/api/numbers.js",
+    "dev:server": "tsx watch server.ts",
+    "start": "node dist/server.js",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "clean": "rm -rf node_modules package-lock.json dist",
@@ -50,6 +51,7 @@
     "eslint-plugin-react-refresh": "^0.4.5",
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.1",
+    "tsx": "^4.20.3",
     "typescript": "^5.2.2",
     "vite": "^5.1.4"
   },

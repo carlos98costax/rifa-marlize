@@ -1,6 +1,13 @@
 import express, { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
+import dotenv from 'dotenv';
+
+// Carregar variáveis de ambiente
+dotenv.config();
+
+// Carregar senha de verificação do ambiente
+const PURCHASE_PASSWORD = process.env.PURCHASE_PASSWORD || '07042025';
 
 const router = express.Router();
 
@@ -92,6 +99,16 @@ router.post('/numbers/purchase', async (req: Request, res: Response): Promise<vo
       res.status(400).json({
         error: 'Invalid request',
         message: 'Password is required',
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
+    // Verificar a senha
+    if (password.trim() !== PURCHASE_PASSWORD) {
+      res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Invalid password',
         timestamp: new Date().toISOString()
       });
       return;
