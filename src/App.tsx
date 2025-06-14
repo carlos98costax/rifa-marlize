@@ -61,12 +61,12 @@ function App() {
     }
 
     try {
-      await api.purchaseNumbers(selectedNumbers, buyerName.trim(), password.trim())
+      const updatedNumbers = await api.purchaseNumbers(selectedNumbers, buyerName.trim(), password.trim())
       toast.success('Números comprados com sucesso!')
+      setNumbers(updatedNumbers)
       setSelectedNumbers([])
       setBuyerName('')
       setPassword('')
-      loadNumbers()
     } catch (error) {
       if (error instanceof Error) {
         toast.error(error.message)

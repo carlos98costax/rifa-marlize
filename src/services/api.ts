@@ -9,6 +9,15 @@ export interface RaffleNumber {
   purchaseDate: Date | null
 }
 
+interface PurchaseResponse {
+  message: string
+  numbers: number[]
+  buyer: string
+  purchaseDate: string
+  timestamp: string
+  updatedNumbers: RaffleNumber[]
+}
+
 export const api = {
   async getNumbers(): Promise<RaffleNumber[]> {
     try {
@@ -24,7 +33,7 @@ export const api = {
     }
   },
 
-  async purchaseNumbers(numbers: number[], buyer: string, password: string): Promise<void> {
+  async purchaseNumbers(numbers: number[], buyer: string, password: string): Promise<RaffleNumber[]> {
     try {
       const response = await fetch(`${API_URL}/purchase`, {
         method: 'POST',
@@ -38,6 +47,9 @@ export const api = {
         const error = await response.json()
         throw new Error(error.error || 'Failed to purchase numbers')
       }
+
+      const data: PurchaseResponse = await response.json()
+      return data.updatedNumbers
     } catch (error) {
       console.error('Error purchasing numbers:', error)
       throw error

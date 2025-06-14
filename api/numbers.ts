@@ -191,12 +191,16 @@ app.post('/api/numbers/purchase', async (req: Request, res: Response): Promise<v
       }
     );
 
+    // Fetch updated numbers
+    const updatedNumbers = await NumberModel.find().sort({ number: 1 });
+
     res.json({
       message: 'Numbers purchased successfully',
       numbers: numbers,
       buyer: buyer.trim(),
       purchaseDate: now,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      updatedNumbers: updatedNumbers
     });
   } catch (error) {
     console.error('Error purchasing numbers:', error);
