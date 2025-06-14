@@ -111,7 +111,7 @@ async function ensureConnection(_req: Request, res: Response, next: NextFunction
 app.use(ensureConnection);
 
 // Routes
-app.get('/numbers', async (_req: Request, res: Response): Promise<void> => {
+app.get('/api/numbers', async (_req: Request, res: Response): Promise<void> => {
   try {
     const numbers = await NumberModel.find().sort({ number: 1 });
     res.json(numbers);
@@ -125,7 +125,7 @@ app.get('/numbers', async (_req: Request, res: Response): Promise<void> => {
   }
 });
 
-app.post('/numbers/purchase', async (req: Request, res: Response): Promise<void> => {
+app.post('/api/numbers/purchase', async (req: Request, res: Response): Promise<void> => {
   try {
     const { numbers, buyer, password } = req.body;
 
@@ -209,7 +209,7 @@ app.post('/numbers/purchase', async (req: Request, res: Response): Promise<void>
 });
 
 // Health check endpoint
-app.get('/health', async (_req: Request, res: Response): Promise<void> => {
+app.get('/api/health', async (_req: Request, res: Response): Promise<void> => {
   try {
     const dbState = mongoose.connection.readyState;
     const status = {
