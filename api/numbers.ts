@@ -70,6 +70,7 @@ async function connectDB() {
     }
 
     console.log('Tentando conectar ao MongoDB...');
+    console.log('URI do MongoDB:', MONGODB_URI.replace(/\/\/[^:]+:[^@]+@/, '//***:***@')); // Oculta credenciais
     
     await mongoose.connect(MONGODB_URI, {
       serverSelectionTimeoutMS: 5000,
@@ -107,10 +108,15 @@ async function connectDB() {
 // Middleware para verificar conexão
 app.use(async (req, res, next) => {
   try {
+    console.log('Verificando conexão MongoDB...');
+    console.log('Estado atual:', mongoose.connection.readyState);
+    
     if (mongoose.connection.readyState !== 1) {
-      console.log('Estado da conexão MongoDB:', mongoose.connection.readyState);
+      console.log('Tentando reconectar ao MongoDB...');
       await connectDB();
     }
+    
+    console.log('Conexão MongoDB verificada com sucesso');
     next();
   } catch (error) {
     console.error('Erro ao reconectar ao MongoDB:', error);
@@ -135,12 +141,17 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 // Health check endpoint
 app.get('/api/health', async (req, res) => {
   try {
+    console.log('Health check iniciado...');
+    
     // Tenta conectar ao MongoDB se não estiver conectado
     if (mongoose.connection.readyState !== 1) {
+      console.log('Tentando conectar ao MongoDB no health check...');
       await connectDB();
     }
 
     const mongoStatus = mongoose.connection.readyState === 1;
+    console.log('Status MongoDB:', mongoStatus);
+    
     const response = { 
       status: mongoStatus ? 'ok' : 'error',
       mongodb: mongoStatus,
@@ -149,9 +160,11 @@ app.get('/api/health', async (req, res) => {
     };
 
     if (!mongoStatus) {
+      console.log('Health check falhou - MongoDB não conectado');
       return res.status(500).json(response);
     }
 
+    console.log('Health check concluído com sucesso');
     res.json(response);
   } catch (error) {
     console.error('Erro no health check:', error);
@@ -167,8 +180,11 @@ app.get('/api/health', async (req, res) => {
 // Rotas
 app.get('/api/numbers', async (req, res) => {
   try {
+    console.log('GET /api/numbers iniciado...');
+    
     // Tenta conectar ao MongoDB se não estiver conectado
     if (mongoose.connection.readyState !== 1) {
+      console.log('Tentando conectar ao MongoDB na rota GET /api/numbers...');
       await connectDB();
     }
 
@@ -188,36 +204,46 @@ app.get('/api/numbers', async (req, res) => {
 
 app.post('/api/numbers/purchase', async (req, res) => {
   try {
+    console.log('POST /api/numbers/purchase iniciado...');
+    
     // Tenta conectar ao MongoDB se não estiver conectado
     if (mongoose.connection.readyState !== 1) {
+      console.log('Tentando conectar ao MongoDB na rota POST /api/numbers/purchase...');
       await connectDB();
     }
 
     const { numbers, buyer, password } = req.body;
+    console.log('Dados recebidos:', { numbers, buyer, password: '***' });
     
     if (!numbers || !Array.isArray(numbers) || numbers.length === 0) {
+      console.log('Números inválidos');
       return res.status(400).json({ error: 'Números inválidos' });
     }
     
     if (!buyer || typeof buyer !== 'string' || buyer.trim() === '') {
+      console.log('Nome do comprador inválido');
       return res.status(400).json({ error: 'Nome do comprador é obrigatório' });
     }
 
     if (!password || typeof password !== 'string') {
+      console.log('Senha não fornecida');
       return res.status(400).json({ error: 'Senha de verificação é obrigatória' });
     }
 
     if (password !== process.env.ADMIN_PASSWORD) {
+      console.log('Senha incorreta');
       return res.status(401).json({ error: 'Senha de verificação incorreta' });
     }
 
     // Verifica se algum número já foi vendido
+    console.log('Verificando números já vendidos...');
     const soldNumbers = await NumberModel.find({
       id: { $in: numbers },
       buyer: { $ne: '' }
     });
 
     if (soldNumbers.length > 0) {
+      console.log('Números já vendidos encontrados:', soldNumbers.map(n => n.id));
       return res.status(400).json({
         error: 'Alguns números já foram vendidos',
         soldNumbers: soldNumbers.map(n => n.id)
@@ -225,6 +251,7 @@ app.post('/api/numbers/purchase', async (req, res) => {
     }
 
     // Atualiza os números
+    console.log('Atualizando números...');
     await NumberModel.updateMany(
       { id: { $in: numbers } },
       { 
@@ -235,6 +262,7 @@ app.post('/api/numbers/purchase', async (req, res) => {
       }
     );
 
+    console.log('Compra realizada com sucesso');
     res.json({ success: true });
   } catch (error) {
     console.error('Erro ao processar compra:', error);
