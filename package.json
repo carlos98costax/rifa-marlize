@@ -5,11 +5,13 @@
   "type": "module",
   "main": "api/numbers.ts",
   "scripts": {
-    "build": "vite build && npx tsc",
+    "build": "vite build && npm install -g typescript && tsc",
     "dev": "vite",
     "start": "node dist/api/numbers.js",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "clean": "rm -rf node_modules package-lock.json dist",
+    "reinstall": "npm run clean && npm install"
   },
   "dependencies": {
     "@heroicons/react": "^2.1.1",

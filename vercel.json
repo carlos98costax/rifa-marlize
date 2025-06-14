@@ -5,14 +5,17 @@
       "src": "api/numbers.ts",
       "use": "@vercel/node",
       "config": {
-        "nodeVersion": "22.x"
+        "nodeVersion": "22.x",
+        "includeFiles": ["api/**/*"]
       }
     },
     {
       "src": "package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "dist"
+        "distDir": "dist",
+        "buildCommand": "npm run build",
+        "installCommand": "npm install"
       }
     }
   ],
