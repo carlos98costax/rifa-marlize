@@ -279,4 +279,9 @@ connectDB().catch(error => {
   console.error('Falha ao conectar ao MongoDB:', error);
 });
 
+// Garante que todas as respostas sejam JSON
+app.use((req, res) => {
+  res.status(404).json({ error: 'Rota não encontrada' });
+});
+
 export default app; 
