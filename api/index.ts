@@ -1,3 +1,3 @@
-import app from './server.js';
+import app from './numbers.js';
 
 export default app; 
