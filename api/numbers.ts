@@ -1,6 +1,9 @@
 import express, { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const app = express();
 
@@ -49,65 +52,47 @@ async function initializeNumbers(): Promise<void> {
 }
 
 // Connect to MongoDB with retry logic
-async function connectDB(): Promise<void> {
-  const maxRetries = 3;
-  let retryCount = 0;
-
-  while (retryCount < maxRetries) {
-    try {
-      if (mongoose.connection.readyState === 0) {
-        console.log(`Attempting to connect to MongoDB (attempt ${retryCount + 1}/${maxRetries})...`);
-        
-        await mongoose.connect(MONGODB_URI, {
-          serverSelectionTimeoutMS: 5000,
-          socketTimeoutMS: 45000,
-          family: 4,
-          maxPoolSize: 10,
-          minPoolSize: 5,
-          maxIdleTimeMS: 10000,
-          connectTimeoutMS: 10000,
-          heartbeatFrequencyMS: 10000,
-          retryWrites: true,
-          retryReads: true,
-          autoIndex: true,
-          autoCreate: true
-        });
-
-        console.log('MongoDB connected successfully');
-        await initializeNumbers();
-        return;
-      }
-      return;
-    } catch (error) {
-      retryCount++;
-      console.error(`MongoDB connection attempt ${retryCount} failed:`, error);
-      
-      if (retryCount === maxRetries) {
-        throw new Error(`Failed to connect to MongoDB after ${maxRetries} attempts`);
-      }
-      
-      // Wait before retrying
-      await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-    }
+const connectWithRetry = async () => {
+  try {
+    await mongoose.connect(MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+      family: 4,
+      maxPoolSize: 10,
+      minPoolSize: 5,
+      maxIdleTimeMS: 10000,
+      connectTimeoutMS: 10000,
+      heartbeatFrequencyMS: 10000,
+      retryWrites: true,
+      retryReads: true,
+      autoIndex: true,
+      autoCreate: true
+    });
+    console.log('Connected to MongoDB');
+    await initializeNumbers();
+  } catch (error) {
+    console.error('MongoDB connection error:', error);
+    console.log('Retrying connection in 5 seconds...');
+    setTimeout(connectWithRetry, 5000);
   }
 }
+
+connectWithRetry();
 
 // Middleware to ensure database connection
-async function ensureConnection(_req: Request, res: Response, next: NextFunction): Promise<void> {
-  try {
-    await connectDB();
-    next();
-  } catch (error) {
-    console.error('Database connection error:', error);
-    res.status(500).json({
-      error: 'Database connection error',
-      message: error instanceof Error ? error.message : 'Unknown error',
-      timestamp: new Date().toISOString()
-    });
+const ensureConnection = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (mongoose.connection.readyState !== 1) {
+    try {
+      await connectWithRetry();
+    } catch (error) {
+      console.error('Database connection error:', error);
+      return res.status(500).json({ error: 'Database connection error' });
+    }
   }
+  next();
 }
 
-// Apply connection middleware to all routes
+// Apply middleware to all routes
 app.use(ensureConnection);
 
 // Routes
@@ -117,11 +102,7 @@ app.get('/api/numbers', async (_req: Request, res: Response): Promise<void> => {
     res.json(numbers);
   } catch (error) {
     console.error('Error fetching numbers:', error);
-    res.status(500).json({
-      error: 'Error fetching numbers',
-      message: error instanceof Error ? error.message : 'Unknown error',
-      timestamp: new Date().toISOString()
-    });
+    res.status(500).json({ error: 'Error fetching numbers' });
   }
 });
 
@@ -182,29 +163,12 @@ app.post('/api/numbers/purchase', async (req: Request, res: Response) => {
 })
 
 // Health check endpoint
-app.get('/api/health', async (_req: Request, res: Response): Promise<void> => {
-  try {
-    const dbState = mongoose.connection.readyState;
-    const status = {
-      status: 'ok',
-      timestamp: new Date().toISOString(),
-      database: {
-        state: dbState,
-        connected: dbState === 1,
-        stateName: ['disconnected', 'connected', 'connecting', 'disconnecting'][dbState] || 'unknown',
-        uri: MONGODB_URI.replace(/\/\/[^:]+:[^@]+@/, '//***:***@') // Hide credentials
-      }
-    };
-    res.json(status);
-  } catch (error) {
-    console.error('Health check error:', error);
-    res.status(500).json({
-      status: 'error',
-      error: 'Health check failed',
-      message: error instanceof Error ? error.message : 'Unknown error',
-      timestamp: new Date().toISOString()
-    });
-  }
+app.get('/api/health', (_req: Request, res: Response): void => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    dbStatus: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+  });
 });
 
 // Error handling middleware
