@@ -5,6 +5,7 @@
   "type": "module",
   "main": "api/numbers.ts",
   "scripts": {
+    "postinstall": "chmod +x node_modules/.bin/tsc",
     "build": "vite build && npx tsc",
     "dev": "vite",
     "start": "node dist/api/numbers.js",
