@@ -63,7 +63,20 @@ function App() {
     try {
       const updatedNumbers = await api.purchaseNumbers(selectedNumbers, buyerName.trim(), password.trim())
       toast.success('Números comprados com sucesso!')
-      setNumbers(updatedNumbers)
+      
+      // Update the numbers state with the new data
+      setNumbers(prevNumbers => {
+        const newNumbers = [...prevNumbers]
+        updatedNumbers.forEach(updatedNumber => {
+          const index = newNumbers.findIndex(n => n.number === updatedNumber.number)
+          if (index !== -1) {
+            newNumbers[index] = updatedNumber
+          }
+        })
+        return newNumbers
+      })
+
+      // Clear the form
       setSelectedNumbers([])
       setBuyerName('')
       setPassword('')

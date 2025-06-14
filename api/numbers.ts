@@ -180,16 +180,22 @@ app.post('/api/numbers/purchase', async (req: Request, res: Response): Promise<v
 
     // Update all numbers
     const now = new Date();
-    await NumberModel.updateMany(
-      { number: { $in: numbers } },
-      {
-        $set: {
-          isAvailable: false,
-          purchasedBy: buyer.trim(),
-          purchaseDate: now
-        }
-      }
-    );
+    const buyerName = buyer.trim();
+
+    // Update each number individually to ensure atomicity
+    for (const number of numbers) {
+      await NumberModel.findOneAndUpdate(
+        { number },
+        {
+          $set: {
+            isAvailable: false,
+            purchasedBy: buyerName,
+            purchaseDate: now
+          }
+        },
+        { new: true }
+      );
+    }
 
     // Fetch updated numbers
     const updatedNumbers = await NumberModel.find().sort({ number: 1 });
@@ -197,7 +203,7 @@ app.post('/api/numbers/purchase', async (req: Request, res: Response): Promise<v
     res.json({
       message: 'Numbers purchased successfully',
       numbers: numbers,
-      buyer: buyer.trim(),
+      buyer: buyerName,
       purchaseDate: now,
       timestamp: new Date().toISOString(),
       updatedNumbers: updatedNumbers
