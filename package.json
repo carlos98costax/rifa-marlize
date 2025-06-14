@@ -4,21 +4,21 @@
   "description": "Sistema de Rifa",
   "main": "api/numbers.ts",
   "scripts": {
-    "build": "tsc",
+    "build": "npm install -g typescript && tsc",
     "start": "node dist/api/numbers.js",
     "dev": "ts-node api/numbers.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.18.2",
-    "mongoose": "^8.1.1"
+    "mongoose": "^8.1.1",
+    "typescript": "^5.3.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/node": "^20.11.16",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.3.3"
+    "ts-node": "^10.9.2"
   },
   "engines": {
     "node": "22.x"
