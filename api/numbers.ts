@@ -19,6 +19,12 @@ app.use(cors({
 
 app.use(express.json());
 
+// Garante que todas as respostas sejam JSON
+app.use((req, res, next) => {
+  res.setHeader('Content-Type', 'application/json');
+  next();
+});
+
 // Conexão com MongoDB
 const MONGODB_URI = process.env.MONGODB_URI || '';
 
@@ -110,7 +116,8 @@ app.use(async (req, res, next) => {
     console.error('Erro ao reconectar ao MongoDB:', error);
     res.status(500).json({ 
       error: 'Erro de conexão com o banco de dados',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      connectionState: mongoose.connection.readyState
     });
   }
 });
@@ -120,7 +127,8 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   console.error('Erro na API:', err);
   res.status(500).json({
     error: 'Erro interno do servidor',
-    details: process.env.NODE_ENV === 'development' ? err.message : undefined
+    details: process.env.NODE_ENV === 'development' ? err.message : undefined,
+    connectionState: mongoose.connection.readyState
   });
 });
 
@@ -241,12 +249,6 @@ app.post('/api/numbers/purchase', async (req, res) => {
 // Inicializa a conexão com o MongoDB
 connectDB().catch(error => {
   console.error('Falha ao conectar ao MongoDB:', error);
-});
-
-// Garante que todas as respostas sejam JSON
-app.use((req, res, next) => {
-  res.setHeader('Content-Type', 'application/json');
-  next();
 });
 
 export default app; 
