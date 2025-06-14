@@ -18,6 +18,7 @@ function App() {
   const loadNumbers = async () => {
     try {
       const data = await api.getNumbers()
+      console.log('Loaded numbers:', data)
       setNumbers(data)
     } catch (error) {
       toast.error('Erro ao carregar os números')
@@ -41,6 +42,8 @@ function App() {
 
   const handleNumberClick = (number: number) => {
     console.log('Clicked number:', number)
+    console.log('Current selected numbers:', selectedNumbers)
+    
     const raffleNumber = numbers.find(n => n.number === number)
     if (!raffleNumber?.isAvailable) {
       toast.error('Este número já foi vendido!')
@@ -48,9 +51,13 @@ function App() {
     }
 
     setSelectedNumbers(prev => {
-      const newSelected = prev.includes(number)
+      const isSelected = prev.includes(number)
+      console.log('Is number selected?', isSelected)
+      
+      const newSelected = isSelected
         ? prev.filter(n => n !== number)
         : [...prev, number]
+      
       console.log('New selected numbers:', newSelected)
       return newSelected
     })
@@ -170,36 +177,41 @@ function App() {
           {/* Numbers Grid */}
           <div className="grid grid-cols-8 sm:grid-cols-10 md:grid-cols-12 lg:grid-cols-16 gap-2 mb-8">
             {console.log('Rendering with selected numbers:', selectedNumbers)}
-            {numbers.map((number) => (
-              <button
-                key={number.number}
-                onClick={() => handleNumberClick(number.number)}
-                disabled={!number.isAvailable}
-                className={`
-                  relative p-2 rounded-lg text-center transition-all duration-200
-                  ${!number.isAvailable 
-                    ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
-                    : selectedNumbers.includes(number.number)
-                      ? 'bg-blue-600 text-white transform scale-105 shadow-lg'
-                      : 'bg-white text-gray-700 hover:bg-blue-50 border border-gray-200 hover:border-blue-300'
-                  }
-                `}
-              >
-                <div className="relative z-10">
-                  <span className="block text-base font-semibold">{number.number}</span>
-                  {!number.isAvailable && number.purchasedBy && (
-                    <span className="block text-gray-500 text-[10px] leading-tight mt-1">
-                      Vendido: {number.purchasedBy}
+            {numbers.map((number) => {
+              const isSelected = selectedNumbers.includes(number.number)
+              console.log(`Number ${number.number} is selected:`, isSelected)
+              
+              return (
+                <button
+                  key={number.number}
+                  onClick={() => handleNumberClick(number.number)}
+                  disabled={!number.isAvailable}
+                  className={`
+                    relative p-2 rounded-lg text-center transition-all duration-200
+                    ${!number.isAvailable 
+                      ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
+                      : isSelected
+                        ? 'bg-blue-600 text-white transform scale-105 shadow-lg'
+                        : 'bg-white text-gray-700 hover:bg-blue-50 border border-gray-200 hover:border-blue-300'
+                    }
+                  `}
+                >
+                  <div className="relative z-10">
+                    <span className="block text-base font-semibold">{number.number}</span>
+                    {!number.isAvailable && number.purchasedBy && (
+                      <span className="block text-gray-500 text-[10px] leading-tight mt-1">
+                        Vendido: {number.purchasedBy}
+                      </span>
+                    )}
+                  </div>
+                  {isSelected && (
+                    <span className="absolute -top-1 -right-1 bg-blue-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
+                      <CheckIcon className="w-3 h-3" />
                     </span>
                   )}
-                </div>
-                {selectedNumbers.includes(number.number) && (
-                  <span className="absolute -top-1 -right-1 bg-blue-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
-                    <CheckIcon className="w-3 h-3" />
-                  </span>
-                )}
-              </button>
-            ))}
+                </button>
+              )
+            })}
           </div>
 
           {/* Purchase Button */}
