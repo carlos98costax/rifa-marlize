@@ -111,7 +111,7 @@ async function ensureConnection(_req: Request, res: Response, next: NextFunction
 app.use(ensureConnection);
 
 // Routes
-app.get('/api/numbers', async (_req: Request, res: Response): Promise<void> => {
+app.get('/numbers', async (_req: Request, res: Response): Promise<void> => {
   try {
     const numbers = await NumberModel.find().sort({ number: 1 });
     res.json(numbers);
@@ -125,53 +125,83 @@ app.get('/api/numbers', async (_req: Request, res: Response): Promise<void> => {
   }
 });
 
-app.post('/api/numbers/purchase', async (req: Request, res: Response): Promise<void> => {
+app.post('/numbers/purchase', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { number, name } = req.body;
+    const { numbers, buyer, password } = req.body;
 
-    if (!number || !name) {
+    if (!numbers || !Array.isArray(numbers) || numbers.length === 0) {
       res.status(400).json({
-        error: 'Missing required fields',
-        message: 'Number and name are required',
+        error: 'Invalid request',
+        message: 'Numbers array is required',
         timestamp: new Date().toISOString()
       });
       return;
     }
 
-    const numberDoc = await NumberModel.findOne({ number });
-
-    if (!numberDoc) {
-      res.status(404).json({
-        error: 'Number not found',
-        message: `Number ${number} does not exist`,
-        timestamp: new Date().toISOString()
-      });
-      return;
-    }
-
-    if (!numberDoc.isAvailable) {
+    if (!buyer || typeof buyer !== 'string' || buyer.trim() === '') {
       res.status(400).json({
-        error: 'Number not available',
-        message: `Number ${number} is already purchased`,
+        error: 'Invalid request',
+        message: 'Buyer name is required',
         timestamp: new Date().toISOString()
       });
       return;
     }
 
-    numberDoc.isAvailable = false;
-    numberDoc.purchasedBy = name;
-    numberDoc.purchaseDate = new Date();
-    await numberDoc.save();
+    if (!password || typeof password !== 'string' || password.trim() === '') {
+      res.status(400).json({
+        error: 'Invalid request',
+        message: 'Password is required',
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
+    // Check if all numbers are available
+    const numberDocs = await NumberModel.find({ number: { $in: numbers } });
+    
+    if (numberDocs.length !== numbers.length) {
+      res.status(400).json({
+        error: 'Invalid numbers',
+        message: 'Some numbers do not exist',
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
+    const unavailableNumbers = numberDocs.filter(doc => !doc.isAvailable);
+    if (unavailableNumbers.length > 0) {
+      res.status(400).json({
+        error: 'Numbers not available',
+        message: `Numbers ${unavailableNumbers.map(n => n.number).join(', ')} are already purchased`,
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
+    // Update all numbers
+    const now = new Date();
+    await NumberModel.updateMany(
+      { number: { $in: numbers } },
+      {
+        $set: {
+          isAvailable: false,
+          purchasedBy: buyer.trim(),
+          purchaseDate: now
+        }
+      }
+    );
 
     res.json({
-      message: 'Number purchased successfully',
-      number: numberDoc,
+      message: 'Numbers purchased successfully',
+      numbers: numbers,
+      buyer: buyer.trim(),
+      purchaseDate: now,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Error purchasing number:', error);
+    console.error('Error purchasing numbers:', error);
     res.status(500).json({
-      error: 'Error purchasing number',
+      error: 'Error purchasing numbers',
       message: error instanceof Error ? error.message : 'Unknown error',
       timestamp: new Date().toISOString()
     });
@@ -179,7 +209,7 @@ app.post('/api/numbers/purchase', async (req: Request, res: Response): Promise<v
 });
 
 // Health check endpoint
-app.get('/api/health', async (_req: Request, res: Response): Promise<void> => {
+app.get('/health', async (_req: Request, res: Response): Promise<void> => {
   try {
     const dbState = mongoose.connection.readyState;
     const status = {
