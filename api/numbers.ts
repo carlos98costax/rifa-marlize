@@ -9,7 +9,7 @@ router.use(cors());
 router.use(express.json());
 
 // MongoDB Connection
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://carlos98costa:1234567890@cluster0.mongodb.net/rifa?retryWrites=true&w=majority';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://carlos98costa:itGlxjpnxNKXMlPB@cluster0.mongodb.net/rifa?retryWrites=true&w=majority';
 
 // Number Schema
 interface INumber {
