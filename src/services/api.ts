@@ -3,10 +3,9 @@ const API_URL = import.meta.env.PROD
   : 'http://localhost:3001/api/numbers'  // Em desenvolvimento, usa localhost
 
 export interface RaffleNumber {
-  number: number
-  isAvailable: boolean
-  purchasedBy: string | null
-  purchaseDate: Date | null
+  id: number
+  buyer: string
+  selected: boolean
 }
 
 export const api = {
@@ -51,7 +50,7 @@ export const api = {
         return false
       }
       const data = await response.json()
-      return data.status === 'ok'
+      return data.status === 'ok' && data.mongodb === true
     } catch (error) {
       console.error('Health check failed:', error)
       return false

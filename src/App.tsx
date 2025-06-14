@@ -40,8 +40,8 @@ function App() {
   }
 
   const handleNumberClick = (number: number) => {
-    const raffleNumber = numbers.find(n => n.number === number)
-    if (!raffleNumber?.isAvailable) {
+    const raffleNumber = numbers.find(n => n.id === number)
+    if (raffleNumber?.buyer) {
       toast.error('Este número já foi vendido!')
       return
     }
@@ -85,11 +85,26 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <Toaster position="top-center" />
-
-      {/* Hero Section with Carousel */}
-      <div className="mb-12">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
+      <Toaster position="top-center" toastOptions={{
+        style: {
+          background: '#1E40AF',
+          color: '#fff',
+          borderRadius: '0.5rem',
+          padding: '1rem',
+        },
+      }} />
+      
+      {/* Header */}
+      <header className="bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-700 text-white py-8 shadow-xl">
+        <div className="max-w-7xl mx-auto px-4 text-center">
+          <h1 className="text-5xl font-bold mb-3 tracking-tight">Rifa Solidária da Marlize</h1>
+          <p className="text-xl text-blue-100 font-light">Faça parte dessa história de solidariedade</p>
+        </div>
+      </header>
+      
+      {/* Carousel */}
+      <div className="w-full bg-white shadow-lg mb-12 rounded-lg overflow-hidden mx-auto max-w-7xl mt-8">
         <Slider {...carouselSettings}>
           <div className="h-80 bg-gradient-to-r from-indigo-500 to-blue-600 flex items-center justify-center relative">
             <div className="absolute inset-0 bg-black opacity-20"></div>
@@ -151,7 +166,7 @@ function App() {
           </div>
 
           {/* Password Input */}
-          <div className="mb-6">
+          <div className="mb-8">
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
               Senha de Verificação
             </label>
@@ -169,26 +184,26 @@ function App() {
           <div className="grid grid-cols-8 sm:grid-cols-10 md:grid-cols-12 lg:grid-cols-16 gap-2 mb-8">
             {numbers.map((number) => (
               <button
-                key={number.number}
-                onClick={() => handleNumberClick(number.number)}
-                disabled={!number.isAvailable}
+                key={number.id}
+                onClick={() => handleNumberClick(number.id)}
+                disabled={number.buyer !== ''}
                 className={`
                   relative p-2 rounded-lg text-center transition-all duration-200
-                  ${!number.isAvailable 
+                  ${number.buyer 
                     ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
-                    : selectedNumbers.includes(number.number)
+                    : selectedNumbers.includes(number.id)
                       ? 'bg-blue-600 text-white transform scale-105 shadow-lg'
                       : 'bg-white text-gray-700 hover:bg-blue-50 border border-gray-200 hover:border-blue-300'
                   }
                 `}
               >
-                {number.number}
-                {!number.isAvailable && number.purchasedBy && (
+                {number.id}
+                {number.buyer && (
                   <span className="absolute inset-0 flex flex-col items-center justify-center bg-gray-800 bg-opacity-75 rounded-lg text-white text-[10px] leading-tight p-1">
-                    <span className="font-medium">{number.purchasedBy}</span>
+                    <span className="font-medium">{number.buyer}</span>
                   </span>
                 )}
-                {selectedNumbers.includes(number.number) && (
+                {selectedNumbers.includes(number.id) && (
                   <span className="absolute -top-1 -right-1 bg-blue-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
                     <CheckIcon className="w-3 h-3" />
                   </span>

@@ -127,81 +127,51 @@ app.get('/api/numbers', async (_req: Request, res: Response): Promise<void> => {
 
 app.post('/api/numbers/purchase', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { numbers, buyer, password } = req.body;
+    const { number, name } = req.body;
 
-    if (!numbers || !Array.isArray(numbers) || numbers.length === 0) {
+    if (!number || !name) {
       res.status(400).json({
-        error: 'Invalid request',
-        message: 'Numbers array is required',
+        error: 'Missing required fields',
+        message: 'Number and name are required',
         timestamp: new Date().toISOString()
       });
       return;
     }
 
-    if (!buyer || typeof buyer !== 'string' || buyer.trim() === '') {
-      res.status(400).json({
-        error: 'Invalid request',
-        message: 'Buyer name is required',
+    const numberDoc = await NumberModel.findOne({ number });
+
+    if (!numberDoc) {
+      res.status(404).json({
+        error: 'Number not found',
+        message: `Number ${number} does not exist`,
         timestamp: new Date().toISOString()
       });
       return;
     }
 
-    if (!password || typeof password !== 'string' || password.trim() === '') {
+    if (!numberDoc.isAvailable) {
       res.status(400).json({
-        error: 'Invalid request',
-        message: 'Password is required',
+        error: 'Number not available',
+        message: `Number ${number} is already purchased`,
         timestamp: new Date().toISOString()
       });
       return;
     }
 
-    // Check if all numbers are available
-    const numberDocs = await NumberModel.find({ number: { $in: numbers } });
-    
-    if (numberDocs.length !== numbers.length) {
-      res.status(400).json({
-        error: 'Invalid numbers',
-        message: 'Some numbers do not exist',
-        timestamp: new Date().toISOString()
-      });
-      return;
-    }
-
-    const unavailableNumbers = numberDocs.filter(doc => !doc.isAvailable);
-    if (unavailableNumbers.length > 0) {
-      res.status(400).json({
-        error: 'Numbers not available',
-        message: `Numbers ${unavailableNumbers.map(n => n.number).join(', ')} are already purchased`,
-        timestamp: new Date().toISOString()
-      });
-      return;
-    }
-
-    // Update all numbers
-    const now = new Date();
-    await NumberModel.updateMany(
-      { number: { $in: numbers } },
-      {
-        $set: {
-          isAvailable: false,
-          purchasedBy: buyer.trim(),
-          purchaseDate: now
-        }
-      }
-    );
+    numberDoc.isAvailable = false;
+    numberDoc.purchasedBy = name;
+    numberDoc.purchaseDate = new Date();
+    await numberDoc.save();
 
     res.json({
-      message: 'Numbers purchased successfully',
-      numbers: numbers,
-      buyer: buyer.trim(),
-      purchaseDate: now,
+      message: 'Number purchased successfully',
+      number: numberDoc,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Error purchasing numbers:', error);
+    console.error('Error purchasing number:', error);
     res.status(500).json({
-      error: 'Error purchasing numbers',
+      error: 'Error purchasing number',
       message: error instanceof Error ? error.message : 'Unknown error',
       timestamp: new Date().toISOString()
     });
