@@ -22,7 +22,7 @@ mongoose.connect(MONGODB_URI)
 import './numbers'
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
+app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
