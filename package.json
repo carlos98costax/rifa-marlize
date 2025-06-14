@@ -5,7 +5,7 @@
   "type": "module",
   "main": "api/numbers.ts",
   "scripts": {
-    "build": "vite build && npm install -g typescript && tsc",
+    "build": "vite build && npx tsc",
     "dev": "vite",
     "start": "node dist/api/numbers.js",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
